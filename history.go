@@ -41,27 +41,29 @@ func (c *Client) FetchHistoricalLegacy(ctx context.Context, date string) (*Legac
 	return c.FetchLegacyResult(ctx, date)
 }
 
-// FetchDelegatedByYear fetches the latest available delegated stats for a given year.
+// FetchDelegatedByYear fetches the delegated stats for the last day of the given year.
 // year must be a valid year (2001 or later, as APNIC stats start from 2001).
+// The file is served from the {year}/ archive subdirectory as a gzip-compressed file.
 func (c *Client) FetchDelegatedByYear(ctx context.Context, year int) (*DelegatedResult, error) {
 	if year < 2001 {
 		return nil, fmt.Errorf("%w: year must be 2001 or later, got %d", ErrInvalidYear, year)
 	}
-	url := fmt.Sprintf("%s%d/delegated-apnic-latest", c.statsBaseURL, year)
-	body, err := c.fetchText(ctx, url)
+	url := fmt.Sprintf("%s%d/delegated-apnic-%d1231.gz", c.statsBaseURL, year, year)
+	body, err := c.fetchTextStr(ctx, url)
 	if err != nil {
 		return nil, err
 	}
 	return parseDelegatedFullFromString(body)
 }
 
-// FetchExtendedByYear fetches the latest available extended delegated stats for a given year.
+// FetchExtendedByYear fetches the extended delegated stats for the last day of the given year.
+// The file is served from the {year}/ archive subdirectory as a gzip-compressed file.
 func (c *Client) FetchExtendedByYear(ctx context.Context, year int) (*ExtendedResult, error) {
 	if year < 2001 {
 		return nil, fmt.Errorf("%w: year must be 2001 or later, got %d", ErrInvalidYear, year)
 	}
-	url := fmt.Sprintf("%s%d/delegated-apnic-extended-latest", c.statsBaseURL, year)
-	body, err := c.fetchText(ctx, url)
+	url := fmt.Sprintf("%s%d/delegated-apnic-extended-%d1231.gz", c.statsBaseURL, year, year)
+	body, err := c.fetchTextStr(ctx, url)
 	if err != nil {
 		return nil, err
 	}

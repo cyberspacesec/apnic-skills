@@ -51,6 +51,14 @@ func (c *Client) QueryWhoisWithFlags(ctx context.Context, query string, flags st
 
 // queryWhois performs the actual TCP Whois query.
 func (c *Client) queryWhois(ctx context.Context, query string) (string, error) {
+	// Apply the same anti-scraping pacing to whois as to HTTP so high-frequency
+	// whois queries don't trip rate limits. Whois has no browser headers (it is
+	// a plain TCP protocol), but jitter + rate limiting still apply.
+	if err := c.waitRateLimit(ctx); err != nil {
+		return "", err
+	}
+	c.jitter(ctx)
+
 	var conn net.Conn
 	var err error
 

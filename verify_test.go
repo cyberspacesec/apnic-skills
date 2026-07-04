@@ -147,7 +147,8 @@ func TestVerifyMD5ChecksumFetchError(t *testing.T) {
 }
 
 func TestFetchMD5Checksum(t *testing.T) {
-	expectedHash := "abc123def456"
+	// GNU-style checksum file: "<hash>  filename"
+	expectedHash := "ad1b2eeeb7986f4f600a14ed4470b7ef"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -170,12 +171,36 @@ func TestFetchMD5Checksum(t *testing.T) {
 	}
 }
 
-func TestFetchMD5ChecksumWithDate(t *testing.T) {
-	expectedHash := "def789abc012"
+func TestFetchMD5ChecksumBSDStyle(t *testing.T) {
+	// BSD-style checksum file as published by APNIC: "MD5 (file) = <hash>"
+	expectedHash := "ad1b2eeeb7986f4f600a14ed4470b7ef"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(expectedHash + "  delegated-apnic-20260627"))
+		w.Write([]byte("MD5 (delegated-apnic-latest) = " + expectedHash))
+	}))
+	defer server.Close()
+
+	client := NewClient(
+		WithHTTPClient(server.Client()),
+		WithStatsBaseURL(server.URL+"/"),
+		WithCacheTTL(1*time.Hour),
+	)
+
+	hash, err := client.FetchMD5Checksum(context.Background(), "delegated", "")
+	if err != nil {
+		t.Fatalf("FetchMD5Checksum() error: %v", err)
+	}
+	if hash != expectedHash {
+		t.Errorf("hash = %q, want %q", hash, expectedHash)
+	}
+}
+
+func TestFetchMD5ChecksumWithDate(t *testing.T) {
+	expectedHash := "ad1b2eeeb7986f4f600a14ed4470b7ef"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		serveDated(w, r, "MD5 (delegated-apnic-20260627) = "+expectedHash)
 	}))
 	defer server.Close()
 
@@ -210,6 +235,70 @@ func TestFetchMD5ChecksumEmptyFile(t *testing.T) {
 	_, err := client.FetchMD5Checksum(context.Background(), "delegated", "")
 	if err == nil {
 		t.Error("expected error for empty MD5 file")
+	}
+}
+
+func TestFetchMD5ChecksumUnparseable(t *testing.T) {
+	// Non-empty content with no recognizable 32-hex hash should fail parsing.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte("garbage content with no hash here"))
+	}))
+	defer server.Close()
+
+	client := NewClient(
+		WithHTTPClient(server.Client()),
+		WithStatsBaseURL(server.URL+"/"),
+		WithCacheTTL(1*time.Hour),
+	)
+
+	_, err := client.FetchMD5Checksum(context.Background(), "delegated", "")
+	if err == nil {
+		t.Error("expected error for unparseable MD5 file")
+	}
+}
+
+func TestIsMD5Hex(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"ad1b2eeeb7986f4f600a14ed4470b7ef", true},  // lowercase
+		{"AD1B2EEEB7986F4F600A14ED4470B7EF", true},  // uppercase
+		{"Ad1B2eeeb7986f4f600a14ed4470b7ef", true},  // mixed case
+		{"abc123", false},                            // too short
+		{"ad1b2eeeb7986f4f600a14ed4470b7eg", false},  // 32 chars but 'g' is not hex
+		{"z1b2eeeb7986f4f600a14ed4470b7ef", false},   // 32 chars but 'z' is not hex
+		{"", false},
+	}
+	for _, tt := range tests {
+		if got := isMD5Hex(tt.input); got != tt.want {
+			t.Errorf("isMD5Hex(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestFetchMD5ChecksumUppercaseHex(t *testing.T) {
+	expectedHash := "AD1B2EEEB7986F4F600A14ED4470B7EF"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte(expectedHash + "  delegated-apnic-latest"))
+	}))
+	defer server.Close()
+
+	client := NewClient(
+		WithHTTPClient(server.Client()),
+		WithStatsBaseURL(server.URL+"/"),
+		WithCacheTTL(1*time.Hour),
+	)
+
+	hash, err := client.FetchMD5Checksum(context.Background(), "delegated", "")
+	if err != nil {
+		t.Fatalf("FetchMD5Checksum() error: %v", err)
+	}
+	if hash != expectedHash {
+		t.Errorf("hash = %q, want %q", hash, expectedHash)
 	}
 }
 

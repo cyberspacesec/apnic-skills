@@ -106,8 +106,7 @@ func TestFetchDelegatedEntries(t *testing.T) {
 
 func TestFetchDelegatedEntriesByDate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleDelegatedData))
+		serveDated(w, r, sampleDelegatedData)
 	}))
 	defer server.Close()
 
@@ -150,8 +149,7 @@ func TestFetchDelegatedResult(t *testing.T) {
 
 func TestFetchDelegatedResultByYear(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleDelegatedData))
+		serveDated(w, r, sampleDelegatedData)
 	}))
 	defer server.Close()
 
@@ -312,6 +310,53 @@ func TestFetchTextReadError(t *testing.T) {
 	_, err := client.FetchDelegatedEntries(context.Background())
 	if err == nil {
 		t.Error("expected error for read failure")
+	}
+}
+
+func TestFetchTextGzipInitError(t *testing.T) {
+	// A .gz URL whose body is not valid gzip must surface a gzip init error.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/gzip")
+		w.Write([]byte("not-gzip-data"))
+	}))
+	defer server.Close()
+
+	client := NewClient(
+		WithHTTPClient(server.Client()),
+		WithStatsBaseURL(server.URL+"/"),
+		WithCacheTTL(1*time.Hour),
+	)
+
+	_, err := client.FetchDelegatedEntriesByDate(context.Background(), "20260627")
+	if err == nil {
+		t.Fatal("expected gzip init error")
+	}
+	if !strings.Contains(err.Error(), "gzip init failed") {
+		t.Errorf("expected gzip init failed error, got: %v", err)
+	}
+}
+
+func TestFetchTextContentEncodingGzip(t *testing.T) {
+	// A non-.gz URL that carries Content-Encoding: gzip should also be decompressed.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Write(gzipBytes(sampleDelegatedData))
+	}))
+	defer server.Close()
+
+	client := NewClient(
+		WithHTTPClient(server.Client()),
+		WithStatsBaseURL(server.URL+"/"),
+		WithCacheTTL(1*time.Hour),
+	)
+
+	// Latest fetch (no .gz suffix) but server returns gzip via Content-Encoding.
+	entries, err := client.FetchDelegatedEntries(context.Background())
+	if err != nil {
+		t.Fatalf("FetchDelegatedEntries() error: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Error("expected entries from Content-Encoding gzip response")
 	}
 }
 

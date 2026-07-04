@@ -2,6 +2,7 @@ package apnic
 
 import (
 	"bufio"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -32,34 +33,30 @@ func (c *Client) FetchDelegatedEntriesByDate(ctx context.Context, date string) (
 // If date is empty, fetches the latest; otherwise fetches the specified date (YYYYMMDD).
 func (c *Client) FetchDelegatedResult(ctx context.Context, date string) (*DelegatedResult, error) {
 	url := buildStatsURL(c.statsBaseURL, "delegated", date)
-	body, err := c.fetchText(ctx, url)
+	r, err := c.fetchReader(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	return parseDelegatedFull(strings.NewReader(body))
+	return parseDelegatedFull(r)
 }
 
-// FetchDelegatedResultByYear fetches delegated stats for a specific year.
-// Returns the result from the latest available file in that year.
+// FetchDelegatedResultByYear fetches the delegated stats for the last day of the given year.
+// The file is served from the {year}/ archive subdirectory as a gzip-compressed file.
 func (c *Client) FetchDelegatedResultByYear(ctx context.Context, year int) (*DelegatedResult, error) {
-	url := fmt.Sprintf("%s%d/delegated-apnic-extended-%d1231", c.statsBaseURL, year, year)
-	body, err := c.fetchText(ctx, url)
+	url := fmt.Sprintf("%s%d/delegated-apnic-%d1231.gz", c.statsBaseURL, year, year)
+	r, err := c.fetchReader(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	return parseDelegatedFull(strings.NewReader(body))
+	return parseDelegatedFull(r)
 }
 
 // fetchText performs an HTTP GET request and returns the response body as a string.
+// If the response is gzip-compressed (either via Content-Encoding or a .gz URL
+// suffix, as used by APNIC's archived historical files), it is transparently
+// decompressed.
 func (c *Client) fetchText(ctx context.Context, url string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return "", fmt.Errorf("request creation failed: %w", err)
-	}
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Accept", "text/plain")
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doHTTPRequest(ctx, "GET", url, "text/plain")
 	if err != nil {
 		return "", fmt.Errorf("HTTP request failed: %w", err)
 	}
@@ -69,8 +66,20 @@ func (c *Client) fetchText(ctx context.Context, url string) (string, error) {
 		return "", fmt.Errorf("unexpected status code: %d for URL: %s", resp.StatusCode, url)
 	}
 
+	body := resp.Body
+	// APNIC archives historical files as .gz with no Content-Encoding header, so
+	// detect by URL suffix too. Both paths are decompressed transparently.
+	if strings.EqualFold(resp.Header.Get("Content-Encoding"), "gzip") || strings.HasSuffix(url, ".gz") {
+		gz, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return "", fmt.Errorf("gzip init failed: %w", err)
+		}
+		defer gz.Close()
+		body = gz
+	}
+
 	var buf strings.Builder
-	if _, err := io.Copy(&buf, resp.Body); err != nil {
+	if _, err := io.Copy(&buf, body); err != nil {
 		return "", fmt.Errorf("read response failed: %w", err)
 	}
 	return buf.String(), nil

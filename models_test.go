@@ -186,8 +186,11 @@ func TestRDAPSearchResultJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("JSON unmarshal error: %v", err)
 	}
-	if len(result.Results) != 1 {
-		t.Errorf("results length = %d", len(result.Results))
+	if len(result.EntitySearchResults) != 2 {
+		t.Errorf("entitySearchResults length = %d, want 2", len(result.EntitySearchResults))
+	}
+	if result.EntitySearchResults[0].Handle != "AIC3-AP" {
+		t.Errorf("first result handle = %q, want AIC3-AP", result.EntitySearchResults[0].Handle)
 	}
 }
 

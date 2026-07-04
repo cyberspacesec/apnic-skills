@@ -23,11 +23,11 @@ func (c *Client) FetchAssignedEntriesByDate(ctx context.Context, date string) (*
 // If date is empty, fetches the latest; otherwise fetches the specified date (YYYYMMDD).
 func (c *Client) FetchAssignedResult(ctx context.Context, date string) (*AssignedResult, error) {
 	url := buildStatsURL(c.statsBaseURL, "assigned", date)
-	body, err := c.fetchText(ctx, url)
+	r, err := c.fetchReader(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	return parseAssignedFull(strings.NewReader(body))
+	return parseAssignedFull(r)
 }
 
 // parseAssignedFull parses the complete assigned stats file.

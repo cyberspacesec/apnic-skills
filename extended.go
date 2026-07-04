@@ -24,21 +24,21 @@ func (c *Client) FetchExtendedEntriesByDate(ctx context.Context, date string) (*
 // If date is empty, fetches the latest; otherwise fetches the specified date (YYYYMMDD).
 func (c *Client) FetchExtendedResult(ctx context.Context, date string) (*ExtendedResult, error) {
 	url := buildStatsURL(c.statsBaseURL, "delegated-extended", date)
-	body, err := c.fetchText(ctx, url)
+	r, err := c.fetchReader(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	return parseExtendedFull(strings.NewReader(body))
+	return parseExtendedFull(r)
 }
 
 // FetchExtendedResultByYear fetches extended delegated stats for a specific year.
 func (c *Client) FetchExtendedResultByYear(ctx context.Context, year int) (*ExtendedResult, error) {
 	url := fmt.Sprintf("%s%d/delegated-apnic-extended-%d1231.gz", c.statsBaseURL, year, year)
-	body, err := c.fetchText(ctx, url)
+	r, err := c.fetchReader(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	return parseExtendedFull(strings.NewReader(body))
+	return parseExtendedFull(r)
 }
 
 // parseExtendedFull parses the complete extended delegated stats file.

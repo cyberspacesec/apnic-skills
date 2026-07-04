@@ -70,8 +70,7 @@ func TestFetchAssignedEntries(t *testing.T) {
 
 func TestFetchAssignedEntriesByDate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleAssignedData))
+		serveDated(w, r, sampleAssignedData)
 	}))
 	defer server.Close()
 

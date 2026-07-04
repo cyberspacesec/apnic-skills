@@ -1,9 +1,11 @@
 package apnic
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -25,6 +27,79 @@ func (c *Client) FetchTransfersByYear(ctx context.Context, year int) (*Transfers
 		return nil, err
 	}
 	return parseTransfersData(body)
+}
+
+// FetchTransfersAll fetches the cumulative transfers-all log, covering all
+// IP/ASN transfers since 2010. Unlike FetchTransfers (which returns the daily
+// JSON snapshot), this returns the historical pipe-delimited format.
+// date == "" fetches the latest cumulative file; a YYYYMMDD date fetches the
+// archived daily snapshot for that day.
+func (c *Client) FetchTransfersAll(ctx context.Context, date string) (*TransfersAllResult, error) {
+	url := buildTransfersAllURL(c.ftpBaseURL, date)
+	body, err := c.fetchTextStr(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	return parseTransfersAll(body)
+}
+
+// FetchTransfersAllMD5 fetches the MD5 checksum for the cumulative transfers-all log.
+func (c *Client) FetchTransfersAllMD5(ctx context.Context, date string) (string, error) {
+	url := buildTransfersAllSidecarURL(c.ftpBaseURL, date, ".md5")
+	content, err := c.fetchText(ctx, url)
+	if err != nil {
+		return "", err
+	}
+	return parseMD5Checksum(content)
+}
+
+// FetchTransfersAllASC fetches the PGP signature (.asc) for the cumulative transfers-all log.
+func (c *Client) FetchTransfersAllASC(ctx context.Context, date string) (string, error) {
+	url := buildTransfersAllSidecarURL(c.ftpBaseURL, date, ".asc")
+	return c.fetchText(ctx, url)
+}
+
+// parseTransfersAll parses the pipe-delimited cumulative transfers-all log.
+// The first non-comment line is the header; subsequent lines are data rows.
+// Comment lines (starting with '#') and blank lines are skipped.
+func parseTransfersAll(data string) (*TransfersAllResult, error) {
+	result := &TransfersAllResult{Records: make([]TransferAllRecord, 0, 1000)}
+	scanner := bufio.NewScanner(strings.NewReader(data))
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024) // lines can be long
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.Split(line, "|")
+		// Header line (resource_type|resource|...) and any short row are skipped.
+		if len(parts) < 11 {
+			continue
+		}
+		if parts[0] == "resource_type" {
+			continue
+		}
+		rec := TransferAllRecord{
+			ResourceType:     parts[0],
+			Resource:         parts[1],
+			FromOrganisation: parts[2],
+			FromEconomy:      parts[3],
+			FromRIR:          parts[4],
+			ToOrganisation:   parts[6],
+			ToEconomy:        parts[7],
+			ToRIR:            parts[8],
+			TransferType:     parts[10],
+		}
+		if t, err := time.Parse("20060102", parts[5]); err == nil {
+			rec.PreviousDelegationDate = t
+		}
+		if t, err := time.Parse("20060102", parts[9]); err == nil {
+			rec.TransferDate = t
+		}
+		result.Records = append(result.Records, rec)
+	}
+	return result, scanner.Err()
 }
 
 // transfersJSON represents the JSON structure of the transfers data file.

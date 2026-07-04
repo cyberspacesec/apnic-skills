@@ -8,7 +8,7 @@ import (
 )
 
 // VerifyMD5 verifies the MD5 checksum of a stats data file.
-// dataType: "delegated", "delegated-extended", "assigned", "legacy"
+// dataType: "delegated", "delegated-extended", "assigned", "delegated-ipv6-assigned", "legacy"
 // date: optional date in YYYYMMDD format; if empty, uses "latest"
 func (c *Client) VerifyMD5(ctx context.Context, dataType, date string) error {
 	// Fetch the data
@@ -25,13 +25,10 @@ func (c *Client) VerifyMD5(ctx context.Context, dataType, date string) error {
 		return err
 	}
 
-	// Parse the MD5 checksum file (format: "hash  filename")
-	expectedMD5 = strings.TrimSpace(expectedMD5)
-	parts := strings.Fields(expectedMD5)
-	if len(parts) < 1 {
-		return fmt.Errorf("%w: empty MD5 checksum file", ErrVerifyFailed)
+	expectedHash, err := parseMD5Checksum(expectedMD5)
+	if err != nil {
+		return err
 	}
-	expectedHash := parts[0]
 
 	// Calculate the MD5 of the data
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(data)))
@@ -44,22 +41,60 @@ func (c *Client) VerifyMD5(ctx context.Context, dataType, date string) error {
 }
 
 // FetchMD5Checksum fetches the MD5 checksum for a stats data file.
-// dataType: "delegated", "delegated-extended", "assigned", "legacy"
-// date: optional date in YYYYMMDD format; if empty, uses "latest"
+// dataType: "delegated", "delegated-extended", "assigned", "delegated-ipv6-assigned", "legacy"
+// date: optional date in YYYYMMDD format; if empty, uses "latest
 func (c *Client) FetchMD5Checksum(ctx context.Context, dataType, date string) (string, error) {
 	md5URL := buildStatsMD5URL(c.statsBaseURL, dataType, date)
 	content, err := c.fetchText(ctx, md5URL)
 	if err != nil {
 		return "", err
 	}
+	return parseMD5Checksum(content)
+}
 
-	// Parse the MD5 checksum file
+// parseMD5Checksum extracts the hex MD5 hash from a checksum file.
+// Supports both BSD-style "MD5 (file) = <hash>" and GNU-style "<hash>  file".
+func parseMD5Checksum(content string) (string, error) {
 	content = strings.TrimSpace(content)
-	parts := strings.Fields(content)
-	if len(parts) < 1 {
+	if content == "" {
 		return "", fmt.Errorf("%w: empty MD5 checksum file", ErrVerifyFailed)
 	}
-	return parts[0], nil
+
+	// BSD style: "MD5 (filename) = <hash>"
+	if strings.Contains(content, "=") {
+		parts := strings.SplitN(content, "=", 2)
+		hash := strings.TrimSpace(parts[1])
+		if isMD5Hex(hash) {
+			return hash, nil
+		}
+	}
+
+	// GNU style: "<hash>  filename" — take the first whitespace-delimited field.
+	fields := strings.Fields(content)
+	for _, f := range fields {
+		if isMD5Hex(f) {
+			return f, nil
+		}
+	}
+
+	return "", fmt.Errorf("%w: could not parse MD5 checksum from: %s", ErrVerifyFailed, content)
+}
+
+// isMD5Hex reports whether s is a 32-character lowercase hex string.
+func isMD5Hex(s string) bool {
+	if len(s) != 32 {
+		return false
+	}
+	for _, r := range s {
+		switch {
+		case r >= '0' && r <= '9':
+		case r >= 'a' && r <= 'f':
+		case r >= 'A' && r <= 'F':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // FetchASCSignature fetches the ASC (PGP) signature for a stats data file.

@@ -98,8 +98,7 @@ func TestFetchExtendedEntries(t *testing.T) {
 
 func TestFetchExtendedEntriesByDate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleExtendedData))
+		serveDated(w, r, sampleExtendedData)
 	}))
 	defer server.Close()
 
@@ -142,8 +141,7 @@ func TestFetchExtendedResult(t *testing.T) {
 
 func TestFetchExtendedResultByYear(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleExtendedData))
+		serveDated(w, r, sampleExtendedData)
 	}))
 	defer server.Close()
 

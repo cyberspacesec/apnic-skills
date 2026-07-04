@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -309,5 +310,120 @@ func TestGetTransfersFetchError(t *testing.T) {
 	_, err := client.GetTransfers(context.Background())
 	if err == nil {
 		t.Error("expected error for fetch failure in GetTransfers")
+	}
+}
+
+func TestParseTransfersAll(t *testing.T) {
+	r, err := parseTransfersAll(sampleTransfersAll)
+	if err != nil {
+		t.Fatalf("parseTransfersAll() error: %v", err)
+	}
+	if len(r.Records) != 3 {
+		t.Fatalf("records = %d, want 3", len(r.Records))
+	}
+	if r.Records[0].ResourceType != "asn" || r.Records[0].Resource != "45745" {
+		t.Errorf("first record = %+v", r.Records[0])
+	}
+	if r.Records[0].TransferType != "M&A" {
+		t.Errorf("transfer type = %q, want M&A", r.Records[0].TransferType)
+	}
+	if !r.Records[0].TransferDate.Equal(time.Date(2012, 6, 20, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("transfer date = %v", r.Records[0].TransferDate)
+	}
+	if r.Records[2].FromRIR != "ARIN" || r.Records[2].ToRIR != "APNIC" {
+		t.Errorf("inter-rir record = %+v", r.Records[2])
+	}
+}
+
+func TestParseTransfersAll_EmptyAndComments(t *testing.T) {
+	r, err := parseTransfersAll("# only comments\n\n# more\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Records) != 0 {
+		t.Errorf("expected 0 records, got %d", len(r.Records))
+	}
+}
+
+// TestParseTransfersAll_ShortRowSkipped covers the len(parts)<11 skip branch:
+// a malformed row with too few fields is skipped without error.
+func TestParseTransfersAll_ShortRowSkipped(t *testing.T) {
+	data := `resource_type|resource|from_organisation|from_economy|from_rir|previous_delegation_date|to_organisation|to_economy|to_rir|transfer_date|transfer_type
+short|row|only|three
+asn|45745|Gambit Group Pty Ltd|AU|APNIC|20090417|Bathurst One Pty Limited|AU|APNIC|20120620|M&A
+`
+	r, err := parseTransfersAll(data)
+	if err != nil {
+		t.Fatalf("parseTransfersAll() error: %v", err)
+	}
+	if len(r.Records) != 1 {
+		t.Errorf("records = %d, want 1 (short row skipped)", len(r.Records))
+	}
+}
+
+func TestFetchTransfersAll(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".md5") {
+			w.Write([]byte(sampleTransfersAllMD5))
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, ".asc") {
+			w.Write([]byte("-----BEGIN PGP SIGNATURE-----\nmock\n-----END PGP SIGNATURE-----"))
+			return
+		}
+		// transfer-all-apnic-latest and per-year archives.
+		w.Write([]byte(sampleTransfersAll))
+	}))
+	defer srv.Close()
+	client := NewClient(WithHTTPClient(srv.Client()), WithFTPBaseURL(srv.URL+"/"), WithJitter(0, 0))
+
+	r, err := client.FetchTransfersAll(context.Background(), "")
+	if err != nil {
+		t.Fatalf("FetchTransfersAll() error: %v", err)
+	}
+	if len(r.Records) != 3 {
+		t.Errorf("records = %d, want 3", len(r.Records))
+	}
+
+	// By date archive.
+	ry, err := client.FetchTransfersAll(context.Background(), "20200615")
+	if err != nil {
+		t.Fatalf("FetchTransfersAll(date) error: %v", err)
+	}
+	if len(ry.Records) != 3 {
+		t.Errorf("date records = %d, want 3", len(ry.Records))
+	}
+
+	md5, err := client.FetchTransfersAllMD5(context.Background(), "")
+	if err != nil {
+		t.Fatalf("FetchTransfersAllMD5() error: %v", err)
+	}
+	if md5 != "0123456789abcdef0123456789abcdef" {
+		t.Errorf("md5 = %q", md5)
+	}
+
+	asc, err := client.FetchTransfersAllASC(context.Background(), "")
+	if err != nil {
+		t.Fatalf("FetchTransfersAllASC() error: %v", err)
+	}
+	if !strings.Contains(asc, "PGP SIGNATURE") {
+		t.Errorf("asc = %q", asc)
+	}
+}
+
+func TestFetchTransfersAllHTTPError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	client := NewClient(WithHTTPClient(srv.Client()), WithFTPBaseURL(srv.URL+"/"), WithJitter(0, 0))
+	if _, err := client.FetchTransfersAll(context.Background(), ""); err == nil {
+		t.Error("expected error on HTTP 500")
+	}
+	if _, err := client.FetchTransfersAllMD5(context.Background(), ""); err == nil {
+		t.Error("expected error on HTTP 500 for md5")
+	}
+	if _, err := client.FetchTransfersAllASC(context.Background(), ""); err == nil {
+		t.Error("expected error on HTTP 500 for asc")
 	}
 }
