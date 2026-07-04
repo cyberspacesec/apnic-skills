@@ -50,6 +50,64 @@ func (c *Client) FetchBGPASNMap(ctx context.Context) (*BGPASNMap, error) {
 	return m, nil
 }
 
+// FetchBGPBadPrefixes fetches and parses thyme's data-badpfx-nos file, which
+// lists prefixes longer than /24 and their origin AS (potential route leaks).
+// source is "current" (default), "au", or "hk"; an empty string uses the
+// client's default source.
+func (c *Client) FetchBGPBadPrefixes(ctx context.Context, source string) (*BGPBadPrefixes, error) {
+	url := buildThymeURL(c.thymeBaseURL, sourceOrDefault(source, c.thymeSource), "data-badpfx-nos")
+	body, err := c.fetchText(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	return parseBGPBadPrefixes(body), nil
+}
+
+// FetchBGPPerPrefixLength fetches and parses thyme's data-pfx-nos file, which
+// counts announced prefixes per prefix length.
+func (c *Client) FetchBGPPerPrefixLength(ctx context.Context, source string) (*BGPPerPrefixLength, error) {
+	url := buildThymeURL(c.thymeBaseURL, sourceOrDefault(source, c.thymeSource), "data-pfx-nos")
+	body, err := c.fetchText(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	return parseBGPPerPrefixLength(body), nil
+}
+
+// FetchBGPUsedAutnums fetches and parses thyme's data-used-autnums file, which
+// lists every in-use ASN with its registered name and country.
+func (c *Client) FetchBGPUsedAutnums(ctx context.Context, source string) (*BGPUsedAutnums, error) {
+	url := buildThymeURL(c.thymeBaseURL, sourceOrDefault(source, c.thymeSource), "data-used-autnums")
+	body, err := c.fetchTextStr(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	return parseBGPUsedAutnums(body), nil
+}
+
+// FetchBGPSparPrefixes fetches and parses thyme's data-spar file, which lists
+// prefixes from the Special Purpose Address Registry (RFC 6890) and their
+// origin AS.
+func (c *Client) FetchBGPSparPrefixes(ctx context.Context, source string) (*BGPSparPrefixes, error) {
+	url := buildThymeURL(c.thymeBaseURL, sourceOrDefault(source, c.thymeSource), "data-spar")
+	body, err := c.fetchText(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	return parseBGPSparPrefixes(body), nil
+}
+
+// FetchBGPSinglePfx fetches and parses thyme's data-singlepfx file, which
+// tallies how many ASNs announce fewer than 20 prefixes, grouped by RIR.
+func (c *Client) FetchBGPSinglePfx(ctx context.Context, source string) (*BGPSinglePfx, error) {
+	url := buildThymeURL(c.thymeBaseURL, sourceOrDefault(source, c.thymeSource), "data-singlepfx")
+	body, err := c.fetchText(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	return parseBGPSinglePfx(body), nil
+}
+
 // parseBGPSummary parses the thyme data-summary file. Lines without a colon are
 // skipped (including the "Analysis Summary" title and the dash separator). The
 // key is the trimmed text before the first colon; the value is the trimmed text

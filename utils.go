@@ -235,6 +235,15 @@ func buildThymeURL(thymeBaseURL, source, file string) string {
 	return strings.TrimRight(thymeBaseURL, "/") + "/" + source + "/" + file
 }
 
+// sourceOrDefault returns source if non-empty, else def. Used by thyme Fetch
+// methods to let a per-call source override the client's default thymeSource.
+func sourceOrDefault(source, def string) string {
+	if source != "" {
+		return source
+	}
+	return def
+}
+
 // buildRRDPNotificationURL constructs the URL for the RRDP notification file.
 // The default rrdpBaseURL is https://rrdp.apnic.net.
 func buildRRDPNotificationURL(rrdpBaseURL string) string {
