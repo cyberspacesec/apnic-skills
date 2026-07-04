@@ -1550,10 +1550,10 @@ func TestCLI_RDAPSearchJSON(t *testing.T) {
 
 func TestParseJitterRange(t *testing.T) {
 	cases := []struct {
-		in   string
-		ok   bool
-		mnS  string
-		mxS  string
+		in  string
+		ok  bool
+		mnS string
+		mxS string
 	}{
 		{"200ms-800ms", true, "200ms", "800ms"},
 		{"1s-2s", true, "1s", "2s"},
@@ -1777,14 +1777,14 @@ func TestCLI_ParseByteSize(t *testing.T) {
 		{"2M", 2 * 1024 * 1024, true},
 		{"1024", 1024, true},
 		{"1GB", 1024 * 1024 * 1024, true},
-		{"4K", 4 * 1024, true},   // single-letter K suffix
+		{"4K", 4 * 1024, true},               // single-letter K suffix
 		{"3G", 3 * 1024 * 1024 * 1024, true}, // single-letter G suffix
-		{"8k", 8 * 1024, true},  // lowercase k
+		{"8k", 8 * 1024, true},               // lowercase k
 		{"2g", 2 * 1024 * 1024 * 1024, true}, // lowercase g
-		{"2m", 2 * 1024 * 1024, true}, // lowercase m
-		{"512kb", 512 * 1024, true}, // lowercase kb
-		{"1mb", 1024 * 1024, true},  // lowercase mb
-		{"1gb", 1024 * 1024 * 1024, true}, // lowercase gb
+		{"2m", 2 * 1024 * 1024, true},        // lowercase m
+		{"512kb", 512 * 1024, true},          // lowercase kb
+		{"1mb", 1024 * 1024, true},           // lowercase mb
+		{"1gb", 1024 * 1024 * 1024, true},    // lowercase gb
 		{"", 0, false},
 		{"abc", 0, false},
 		{"-1MB", 0, false},
@@ -2211,6 +2211,36 @@ func TestCLI_BGPRawTableTruncation(t *testing.T) {
 	out, err := runWithServer(t, srv, []string{"bgp", "raw-table"})
 	if err != nil {
 		t.Fatalf("bgp raw-table truncation: %v", err)
+	}
+	if !strings.Contains(out, "more)") {
+		t.Errorf("expected truncation marker in output: %s", out)
+	}
+}
+
+// TestCLI_BGPUsedAutnumsTruncation exercises the >50 ASNs truncation path
+// (limit cap + "... (N more)" line) in 'bgp used-autnums'.
+func TestCLI_BGPUsedAutnumsTruncation(t *testing.T) {
+	resetFlags()
+	srv := newLargeDatasetServer()
+	defer srv.Close()
+	out, err := runWithServer(t, srv, []string{"bgp", "used-autnums"})
+	if err != nil {
+		t.Fatalf("bgp used-autnums truncation: %v", err)
+	}
+	if !strings.Contains(out, "more)") {
+		t.Errorf("expected truncation marker in output: %s", out)
+	}
+}
+
+// TestCLI_BGPBadPrefixesTruncation exercises the >50 entries truncation path
+// (limit cap + "... (N more)" line) in 'bgp bad-prefixes'.
+func TestCLI_BGPBadPrefixesTruncation(t *testing.T) {
+	resetFlags()
+	srv := newLargeDatasetServer()
+	defer srv.Close()
+	out, err := runWithServer(t, srv, []string{"bgp", "bad-prefixes"})
+	if err != nil {
+		t.Fatalf("bgp bad-prefixes truncation: %v", err)
 	}
 	if !strings.Contains(out, "more)") {
 		t.Errorf("expected truncation marker in output: %s", out)

@@ -195,7 +195,7 @@ func parseBGPBadPrefixes(data string) *BGPBadPrefixes {
 // split on ":" into length (the N in /N) and count. Tokens that fail to parse
 // are skipped.
 func parseBGPPerPrefixLength(data string) *BGPPerPrefixLength {
-	r := &BGPPerPrefixLength{Counts: make([]BPGPrefixLengthCount, 0, 128)}
+	r := &BGPPerPrefixLength{Counts: make([]BGPPrefixLengthCount, 0, 128)}
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
@@ -221,7 +221,7 @@ func parseBGPPerPrefixLength(data string) *BGPPerPrefixLength {
 			if err != nil {
 				continue
 			}
-			r.Counts = append(r.Counts, BPGPrefixLengthCount{Length: length, Count: count, Raw: tok})
+			r.Counts = append(r.Counts, BGPPrefixLengthCount{Length: length, Count: count, Raw: tok})
 		}
 	}
 	return r
@@ -252,6 +252,11 @@ func parseBGPUsedAutnums(data string) *BGPUsedAutnums {
 		}
 		country := strings.TrimSpace(line[commaIdx+1:])
 		// FullName is the text between the ASN and the comma (exclusive).
+		// Guard against a comma that appears at or before the ASN (e.g. "1, Foo"
+		// or ", foo"), where len(asn) > commaIdx would slice out of range.
+		if len(asn) > commaIdx {
+			continue
+		}
 		rest := strings.TrimSpace(line[len(asn):commaIdx])
 		// Name is the first whitespace field of rest.
 		nameFields := strings.Fields(rest)

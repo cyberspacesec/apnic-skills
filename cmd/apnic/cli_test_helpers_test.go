@@ -442,6 +442,29 @@ func bigIRRDump(n int) string {
 	return b.String()
 }
 
+// bigBGPUsedAutnums builds a thyme data-used-autnums payload with n ASN lines
+// so the >50 truncation path in 'bgp used-autnums' is exercised.
+func bigBGPUsedAutnums(n int) string {
+	var b strings.Builder
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&b, "%d AS%d - Autonom%d, LLC, US\n", i+1, i+1, i+1)
+	}
+	return b.String()
+}
+
+// bigBGPBadPrefixes builds a thyme data-badpfx-nos payload with n route lines
+// so the >50 truncation path in 'bgp bad-prefixes' is exercised.
+func bigBGPBadPrefixes(n int) string {
+	var b strings.Builder
+	b.WriteString("Prefixes longer than /24\n")
+	b.WriteString("-----------------------\n")
+	b.WriteString("Origin AS       Address\n")
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&b, "    %d       10.%d.%d.128/25\n", 65000+i%100, (i/256)%256, i%256)
+	}
+	return b.String()
+}
+
 // newLargeDatasetServer starts a mock server whose BGP raw-table, RRDP
 // notification and IRR inetnum routes return datasets large enough to trigger
 // the truncation (limit > N) code paths. Other routes delegate to cliHandler().
@@ -452,6 +475,14 @@ func newLargeDatasetServer() *httptest.Server {
 		case strings.HasSuffix(path, "data-raw-table"):
 			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte(bigBGPRawTable(60)))
+			return
+		case strings.HasSuffix(path, "data-used-autnums"):
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte(bigBGPUsedAutnums(60)))
+			return
+		case strings.HasSuffix(path, "data-badpfx-nos"):
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte(bigBGPBadPrefixes(60)))
 			return
 		case strings.HasSuffix(path, "notification.xml"):
 			w.Header().Set("Content-Type", "application/xml")

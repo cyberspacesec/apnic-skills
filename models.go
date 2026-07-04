@@ -207,17 +207,17 @@ type TransfersResult struct {
 // (JSON), this is the historical pipe-delimited format covering all transfers
 // since 2010.
 type TransferAllRecord struct {
-	ResourceType            string // asn | ipv4 | ipv6
-	Resource                string // the ASN or prefix
-	FromOrganisation        string
-	FromEconomy             string
-	FromRIR                 string
-	PreviousDelegationDate  time.Time
-	ToOrganisation          string
-	ToEconomy               string
-	ToRIR                   string
-	TransferDate            time.Time
-	TransferType            string // e.g. M&A, RESOURCE_TRANSFER
+	ResourceType           string // asn | ipv4 | ipv6
+	Resource               string // the ASN or prefix
+	FromOrganisation       string
+	FromEconomy            string
+	FromRIR                string
+	PreviousDelegationDate time.Time
+	ToOrganisation         string
+	ToEconomy              string
+	ToRIR                  string
+	TransferDate           time.Time
+	TransferType           string // e.g. M&A, RESOURCE_TRANSFER
 }
 
 // TransfersAllResult represents the parsed cumulative transfers-all log.
@@ -234,18 +234,18 @@ type WhoisRDAPTelemetry struct {
 			Start string `json:"start"`
 			End   string `json:"end"`
 		} `json:"date_range"`
-		TotalQueries            int64            `json:"total_queries"`
-		TotalASNs               int64            `json:"total_asns"`
-		QueryTypeDistribution   map[string]int64 `json:"query_type_distribution"`
-		ASNs                    []TelemetryASN   `json:"asns"`
+		TotalQueries          int64            `json:"total_queries"`
+		TotalASNs             int64            `json:"total_asns"`
+		QueryTypeDistribution map[string]int64 `json:"query_type_distribution"`
+		ASNs                  []TelemetryASN   `json:"asns"`
 	} `json:"RDAP"`
 }
 
 // TelemetryASN represents a top-queried ASN entry in the telemetry.
 type TelemetryASN struct {
-	ASN               string           `json:"asn"`
-	QueryCount        int64            `json:"query_count"`
-	QueryCountByType  map[string]int64 `json:"query_count_by_type"`
+	ASN              string           `json:"asn"`
+	QueryCount       int64            `json:"query_count"`
+	QueryCountByType map[string]int64 `json:"query_count_by_type"`
 }
 
 // ChangesResult represents the full result of parsing changes data.
@@ -458,9 +458,9 @@ type BGPBadPrefixes struct {
 	Prefixes []BGPBadPrefix
 }
 
-// BPGPrefixLengthCount is a single "/N:count" entry from thyme's data-pfx-nos
+// BGPPrefixLengthCount is a single "/N:count" entry from thyme's data-pfx-nos
 // file, recording how many prefixes of each length are announced.
-type BPGPrefixLengthCount struct {
+type BGPPrefixLengthCount struct {
 	Length int    // the N in /N
 	Count  int    // number of prefixes of that length
 	Raw    string // the original token, e.g. "/8:16", kept for diagnostics
@@ -468,7 +468,7 @@ type BPGPrefixLengthCount struct {
 
 // BGPPerPrefixLength holds the parsed entries from thyme's data-pfx-nos file.
 type BGPPerPrefixLength struct {
-	Counts []BPGPrefixLengthCount
+	Counts []BGPPrefixLengthCount
 }
 
 // BGPUsedAutnum is a single in-use ASN record from thyme's data-used-autnums
@@ -600,6 +600,3 @@ type RExHolder struct {
 type RExHoldersCount struct {
 	Count int64 `json:"count"`
 }
-
-
-

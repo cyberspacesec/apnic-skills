@@ -399,6 +399,22 @@ func TestParseBGPUsedAutnums_Malformed(t *testing.T) {
 	}
 }
 
+// TestParseBGPUsedAutnums_CommaBeforeASN exercises the defensive slice-bound
+// guard: when a comma appears at or before the ASN token (e.g. "1, Foo Bar" or
+// ", foo"), len(asn) > commaIdx must not panic and the line is skipped.
+func TestParseBGPUsedAutnums_CommaBeforeASN(t *testing.T) {
+	const in = "1, Foo Bar\n" + // comma right after ASN token boundary
+		", foo\n" + // comma before any ASN field
+		"3 UDEL-DCN - University of Delaware, US\n" // valid line still parsed
+	r := parseBGPUsedAutnums(in)
+	if len(r.Autnums) != 1 {
+		t.Fatalf("autnums = %d, want 1 (only the valid line)", len(r.Autnums))
+	}
+	if r.Autnums[0].ASN != "3" || r.Autnums[0].Country != "US" {
+		t.Errorf("unexpected: %+v", r.Autnums[0])
+	}
+}
+
 const sampleBGPSparPrefixes = `Prefixes from the Special Purpose Address Registry (Global)
 -----------------------------------------------------------
 

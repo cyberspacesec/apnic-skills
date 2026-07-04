@@ -115,8 +115,16 @@ var bgpBadPrefixesCmd = &cobra.Command{
 			return nil
 		}
 		fmt.Printf("# bgp bad-prefixes: %d entries (source=%s)\n", len(r.Prefixes), sourceLabel(flagBGPSource))
-		for _, p := range r.Prefixes {
+		limit := len(r.Prefixes)
+		if limit > 50 {
+			limit = 50
+		}
+		for i := 0; i < limit; i++ {
+			p := r.Prefixes[i]
 			fmt.Printf("%s\t%s\n", p.OriginAS, p.Address)
+		}
+		if len(r.Prefixes) > limit {
+			fmt.Printf("... (%d more)\n", len(r.Prefixes)-limit)
 		}
 		return nil
 	},
