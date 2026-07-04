@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+# Compiled CLI binary (go build ./cmd/apnic produces ./apnic)
+/apnic
+
 # Test binary, built with `go test -c`
 *.test
 

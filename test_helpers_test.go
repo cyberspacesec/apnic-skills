@@ -1,6 +1,7 @@
 package apnic
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/md5"
 	"fmt"
@@ -8,14 +9,43 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
+// init disables request jitter for the whole test binary so the suite runs fast.
+// stealth_test.go re-enables it locally via t.Setenv where real jitter is needed.
+func init() {
+	_ = os.Setenv("APNIC_NO_JITTER", "1")
+}
+
 // md5Hash computes the MD5 hash of a string.
 func md5Hash(data string) string {
 	return fmt.Sprintf("%x", md5.Sum([]byte(data)))
+}
+
+// gzipBytes gzip-compresses the given data, for serving .gz responses in tests.
+func gzipBytes(data string) []byte {
+	var buf strings.Builder
+	zw := gzip.NewWriter(&buf)
+	zw.Write([]byte(data))
+	zw.Close()
+	return []byte(buf.String())
+}
+
+// serveDated writes sample as either gzip-compressed (when the request URL ends
+// in .gz, matching APNIC's dated-file layout) or plain text (for latest files).
+// datePrefix sets the Content-Type appropriately.
+func serveDated(w http.ResponseWriter, r *http.Request, sample string) {
+	if strings.HasSuffix(r.URL.Path, ".gz") {
+		w.Header().Set("Content-Type", "application/gzip")
+		w.Write(gzipBytes(sample))
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(sample))
 }
 
 // stringReader creates an io.Reader from a string.
@@ -97,13 +127,15 @@ func dialWithReadError(addr string) dialFunc {
 }
 
 // newTestClient creates a Client with a mock HTTP server that intercepts
-// both stats (FTP) and RDAP requests.
+// both stats (FTP) and RDAP requests. Jitter/stealth pacing is disabled to keep
+// tests fast; stealth headers are validated separately in stealth_test.go.
 func newTestClient(handler http.HandlerFunc) (*Client, *httptest.Server) {
 	server := httptest.NewServer(handler)
 	client := NewClient(
 		WithHTTPClient(server.Client()),
 		WithRDAPBaseURL(server.URL),
 		WithCacheTTL(1*time.Hour),
+		WithJitter(0, 0),
 	)
 	return client, server
 }
@@ -134,31 +166,40 @@ func mockWhoisServer(t *testing.T, response string) (string, func()) {
 
 // allStatsHandler returns an HTTP handler that serves all types of APNIC data
 // based on URL path patterns. This allows us to test Fetch* methods without
-// hitting real servers.
+// hitting real servers. Dated (.gz) requests are served gzip-compressed.
 func allStatsHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-		w.Header().Set("Content-Type", "text/plain")
-
+	// pickSample selects the sample payload for a given path.
+	pickSample := func(path string) (string, string) {
 		switch {
 		case strings.Contains(path, "delegated-extended"):
-			w.Write([]byte(sampleExtendedData))
+			return sampleExtendedData, "text/plain"
+		case strings.Contains(path, "delegated-ipv6-assigned"):
+			return sampleIPv6AssignedData, "text/plain"
 		case strings.Contains(path, "assigned"):
-			w.Write([]byte(sampleAssignedData))
+			return sampleAssignedData, "text/plain"
 		case strings.Contains(path, "legacy"):
-			w.Write([]byte(sampleLegacyData))
+			return sampleLegacyData, "text/plain"
 		case strings.Contains(path, "delegated"):
-			w.Write([]byte(sampleDelegatedData))
+			return sampleDelegatedData, "text/plain"
 		case strings.Contains(path, "transfers"):
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(sampleTransfersJSON))
+			return sampleTransfersJSON, "application/json"
 		case strings.Contains(path, "changes"):
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(sampleChangesData))
+			return sampleChangesData, "application/json"
 		default:
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(sampleRDAPNotFoundJSON))
+			return sampleRDAPNotFoundJSON, "application/rdap+json"
 		}
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		sample, contentType := pickSample(path)
+		if strings.HasSuffix(path, ".gz") {
+			w.Header().Set("Content-Type", "application/gzip")
+			w.Write(gzipBytes(sample))
+			return
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.Write([]byte(sample))
 	}
 }
 
@@ -177,8 +218,12 @@ func rdapHandler() http.HandlerFunc {
 			w.Write([]byte(sampleRDAPDomainJSON))
 		case strings.Contains(path, "/entity/"):
 			w.Write([]byte(sampleRDAPEntityJSON))
-		case strings.Contains(path, "/search"):
+		case strings.Contains(path, "/entities"):
 			w.Write([]byte(sampleRDAPSearchJSON))
+		case strings.Contains(path, "/domains"):
+			w.Write([]byte(sampleRDAPDomainsSearchJSON))
+		case strings.HasSuffix(path, "/help"):
+			w.Write([]byte(sampleRDAPHelpJSON))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(sampleRDAPNotFoundJSON))
@@ -196,8 +241,10 @@ func combinedHandler() http.HandlerFunc {
 		if strings.HasPrefix(path, "/ip/") ||
 			strings.HasPrefix(path, "/autnum/") ||
 			strings.HasPrefix(path, "/domain/") ||
+			strings.HasPrefix(path, "/domains") ||
 			strings.HasPrefix(path, "/entity/") ||
-			strings.HasPrefix(path, "/search") {
+			strings.HasPrefix(path, "/entities") ||
+			strings.HasSuffix(path, "/help") {
 			rdap(w, r)
 		} else {
 			stats(w, r)
@@ -238,6 +285,14 @@ apnic|ae|ipv4||4||assigned||1
 apnic|ae|ipv4||16||assigned||3
 apnic|ae|ipv4||256||assigned||12
 apnic|jp|ipv6||48||assigned||5
+`
+
+const sampleIPv6AssignedData = `2|apnic|20260629|7621|20020116|20260626|+1000
+apnic|*|ipv6|*|7621|summary
+apnic|HK|ipv6|2001:7fa:0:1::|64|20020116
+apnic|KR|ipv6|2001:7fa:0:2::|64|20020117
+apnic|JP|ipv6|2001:7fa:0:3::|64|20020226
+apnic|TW|ipv6|2001:7fa:1::|48|20021023
 `
 
 const sampleLegacyData = `1|apnic|20260627|3|19850701|20260626|+1000
@@ -286,6 +341,33 @@ const sampleTransfersJSON = `{
     }
   ]
 }`
+
+const sampleTransfersAll = `######################################################################
+#
+# CONDITIONS OF USE
+#
+######################################################################
+resource_type|resource|from_organisation|from_economy|from_rir|previous_delegation_date|to_organisation|to_economy|to_rir|transfer_date|transfer_type
+asn|45745|Gambit Group Pty Ltd|AU|APNIC|20090417|Bathurst One Pty Limited|AU|APNIC|20120620|M&A
+ipv4|1.2.3.0|Org A|AU|APNIC|20100101|Org B|CN|APNIC|20200115|RESOURCE_TRANSFER
+ipv6|2001:db8::|Org C|US|ARIN|20100202|Org D|JP|APNIC|20210320|INTER_RIR_TRANSFER
+`
+
+const sampleTransfersAllMD5 = `MD5 (file) = 0123456789abcdef0123456789abcdef`
+
+const sampleTelemetryJSON = `{
+  "RDAP": {
+    "date_range": {"start": "2026-07-01T06:00:00Z", "end": "2026-07-01T07:00:00Z"},
+    "total_queries": 3070925,
+    "total_asns": 1737,
+    "query_type_distribution": {"ip": 3030224, "autnum": 28141, "entity": 10441, "domain": 2044},
+    "asns": [
+      {"asn": "45102", "query_count": 2274463, "query_count_by_type": {"ip": 2274457, "entity": 6}}
+    ]
+  }
+}`
+
+const sampleTelemetryMD5 = `0123456789abcdef0123456789abcdef  file`
 
 const sampleChangesData = `{"count":3,"stats-begin":"https://ftp.apnic.net/stats/apnic/2026/delegated-apnic-extended-20260626.gz","stats-end":"https://ftp.apnic.net/stats/apnic/2026/delegated-apnic-extended-20260627.gz","timestamp":"2026-06-26 15:23:38","version":"0.1"}
 {"cc":"IN","custodian":"A91ED89F","resources":["160.236.32.0/23"],"status":"allocated","timestamp":"2026-06-25T22:16:15","type":"delegated"}
@@ -361,8 +443,27 @@ const sampleRDAPEntityJSON = `{
 
 const sampleRDAPSearchJSON = `{
   "rdapConformance": ["rdap_level_0"],
-  "results": [
-    {"objectClassName": "ip network", "handle": "1.1.1.0 - 1.1.1.255", "name": "APNIC-LABS"}
+  "entitySearchResults": [
+    {"objectClassName": "entity", "handle": "AIC3-AP", "roles": ["administrative"]},
+    {"objectClassName": "entity", "handle": "IRA1-AP", "roles": ["technical"]}
+  ],
+  "port43": "whois.apnic.net"
+}`
+
+const sampleRDAPDomainsSearchJSON = `{
+  "rdapConformance": ["rdap_level_0", "nro_rdap_profile_0"],
+  "domainSearchResults": [
+    {"objectClassName": "domain", "handle": "1.in-addr.arpa", "ldhName": "1.in-addr.arpa"},
+    {"objectClassName": "domain", "handle": "2.in-addr.arpa", "ldhName": "2.in-addr.arpa"}
+  ],
+  "port43": "whois.apnic.net"
+}`
+
+const sampleRDAPHelpJSON = `{
+  "rdapConformance": ["rdap_level_0", "history_version_0", "cidr0", "nro_rdap_profile_0", "redirect_with_content"],
+  "notices": [
+    {"title": "Terms of Service", "description": ["By using the APNIC RDAP service you agree to the APNIC terms of service."]},
+    {"title": "Inaccuracy Reports", "description": ["Use the APNIC inaccuracy report form."]}
   ],
   "port43": "whois.apnic.net"
 }`

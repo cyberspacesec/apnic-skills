@@ -260,3 +260,21 @@ func TestQueryWhoisReadError(t *testing.T) {
 		t.Error("expected error for read failure")
 	}
 }
+
+// TestQueryWhois_RateLimitError covers the waitRateLimit-error branch of
+// queryWhois: with a rate limiter and an already-cancelled context, the query
+// fails before any dial is attempted.
+func TestQueryWhois_RateLimitError(t *testing.T) {
+	addr, cleanup := mockWhoisServer(t, sampleWhoisResponse)
+	defer cleanup()
+	client := NewClient(
+		WithWhoisServer(addr),
+		WithRateLimit(1.0),
+		WithJitter(0, 0),
+	)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := client.QueryWhois(ctx, "1.1.1.1"); err == nil {
+		t.Error("expected waitRateLimit error from cancelled context")
+	}
+}

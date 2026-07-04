@@ -17,4 +17,6 @@ var (
 	ErrNotFound          = errors.New("resource not found")
 	ErrInvalidYear       = errors.New("invalid year")
 	ErrInvalidStatsType  = errors.New("invalid stats file type")
+	ErrInvalidIRRType    = errors.New("invalid IRR object type")
+	ErrInvalidRExParam  = errors.New("invalid REx query parameter")
 )

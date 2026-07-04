@@ -249,10 +249,14 @@ func TestBuildStatsURL(t *testing.T) {
 		expected string
 	}{
 		{"delegated", "", base + "delegated-apnic-latest"},
-		{"delegated", "20260627", base + "delegated-apnic-20260627"},
-		{"delegated-extended", "", base + "delegated-extended-apnic-latest"},
-		{"assigned", "20260101", base + "assigned-apnic-20260101"},
+		{"delegated", "20260627", base + "2026/delegated-apnic-20260627.gz"},
+		{"delegated-extended", "", base + "delegated-apnic-extended-latest"},
+		{"delegated-extended", "20260101", base + "2026/delegated-apnic-extended-20260101.gz"},
+		{"delegated-ipv6-assigned", "", base + "delegated-apnic-ipv6-assigned-latest"},
+		{"delegated-ipv6-assigned", "20260629", base + "2026/delegated-apnic-ipv6-assigned-20260629.gz"},
+		{"assigned", "20260101", base + "2026/assigned-apnic-20260101.gz"},
 		{"legacy", "", base + "legacy-apnic-latest"},
+		{"legacy", "20200601", base + "2020/legacy-apnic-20200601.gz"},
 	}
 
 	for _, tt := range tests {
@@ -265,19 +269,35 @@ func TestBuildStatsURL(t *testing.T) {
 
 func TestBuildStatsMD5URL(t *testing.T) {
 	base := "https://ftp.apnic.net/apnic/stats/apnic/"
-	result := buildStatsMD5URL(base, "delegated", "")
-	expected := base + "delegated-apnic-latest.md5"
-	if result != expected {
-		t.Errorf("buildStatsMD5URL() = %q, want %q", result, expected)
+	tests := []struct {
+		dataType string
+		date     string
+		expected string
+	}{
+		{"delegated", "", base + "delegated-apnic-latest.md5"},
+		{"delegated", "20260627", base + "2026/delegated-apnic-20260627.md5.gz"},
+	}
+	for _, tt := range tests {
+		if got := buildStatsMD5URL(base, tt.dataType, tt.date); got != tt.expected {
+			t.Errorf("buildStatsMD5URL(%q,%q) = %q, want %q", tt.dataType, tt.date, got, tt.expected)
+		}
 	}
 }
 
 func TestBuildStatsASCURL(t *testing.T) {
 	base := "https://ftp.apnic.net/apnic/stats/apnic/"
-	result := buildStatsASCURL(base, "delegated", "")
-	expected := base + "delegated-apnic-latest.asc"
-	if result != expected {
-		t.Errorf("buildStatsASCURL() = %q, want %q", result, expected)
+	tests := []struct {
+		dataType string
+		date     string
+		expected string
+	}{
+		{"delegated", "", base + "delegated-apnic-latest.asc"},
+		{"delegated", "20260627", base + "2026/delegated-apnic-20260627.asc.gz"},
+	}
+	for _, tt := range tests {
+		if got := buildStatsASCURL(base, tt.dataType, tt.date); got != tt.expected {
+			t.Errorf("buildStatsASCURL(%q,%q) = %q, want %q", tt.dataType, tt.date, got, tt.expected)
+		}
 	}
 }
 

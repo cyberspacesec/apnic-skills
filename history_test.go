@@ -42,8 +42,7 @@ func TestFetchHistoricalLegacyInvalidDate(t *testing.T) {
 
 func TestFetchHistoricalDelegated(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleDelegatedData))
+		serveDated(w, r, sampleDelegatedData)
 	}))
 	defer server.Close()
 
@@ -64,8 +63,7 @@ func TestFetchHistoricalDelegated(t *testing.T) {
 
 func TestFetchHistoricalExtended(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleExtendedData))
+		serveDated(w, r, sampleExtendedData)
 	}))
 	defer server.Close()
 
@@ -86,8 +84,7 @@ func TestFetchHistoricalExtended(t *testing.T) {
 
 func TestFetchHistoricalAssigned(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleAssignedData))
+		serveDated(w, r, sampleAssignedData)
 	}))
 	defer server.Close()
 
@@ -108,8 +105,7 @@ func TestFetchHistoricalAssigned(t *testing.T) {
 
 func TestFetchHistoricalLegacy(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleLegacyData))
+		serveDated(w, r, sampleLegacyData)
 	}))
 	defer server.Close()
 
@@ -138,8 +134,7 @@ func TestFetchDelegatedByYearInvalid(t *testing.T) {
 
 func TestFetchDelegatedByYear(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleDelegatedData))
+		serveDated(w, r, sampleDelegatedData)
 	}))
 	defer server.Close()
 
@@ -186,8 +181,7 @@ func TestFetchExtendedByYearInvalid(t *testing.T) {
 
 func TestFetchExtendedByYear(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleExtendedData))
+		serveDated(w, r, sampleExtendedData)
 	}))
 	defer server.Close()
 

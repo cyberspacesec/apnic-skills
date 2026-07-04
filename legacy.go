@@ -23,11 +23,11 @@ func (c *Client) FetchLegacyEntriesByDate(ctx context.Context, date string) (*Le
 // If date is empty, fetches the latest; otherwise fetches the specified date (YYYYMMDD).
 func (c *Client) FetchLegacyResult(ctx context.Context, date string) (*LegacyResult, error) {
 	url := buildStatsURL(c.statsBaseURL, "legacy", date)
-	body, err := c.fetchText(ctx, url)
+	r, err := c.fetchReader(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	return parseLegacyFull(strings.NewReader(body))
+	return parseLegacyFull(r)
 }
 
 // parseLegacyFull parses the complete legacy stats file.

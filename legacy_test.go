@@ -95,8 +95,7 @@ func TestFetchLegacyEntries(t *testing.T) {
 
 func TestFetchLegacyEntriesByDate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleLegacyData))
+		serveDated(w, r, sampleLegacyData)
 	}))
 	defer server.Close()
 
