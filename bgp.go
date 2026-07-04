@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -104,4 +105,178 @@ func parseBGPRawTable(data string) (*BGPRawTable, error) {
 		return nil, fmt.Errorf("BGP raw table scan failed: %w", err)
 	}
 	return t, nil
+}
+
+// parseBGPBadPrefixes parses thyme's data-badpfx-nos file. After a header
+// (title + dash separator + column header), each non-empty line is
+// "OriginAS<TAB>Address". Lines without two whitespace fields are skipped.
+func parseBGPBadPrefixes(data string) *BGPBadPrefixes {
+	r := &BGPBadPrefixes{Prefixes: make([]BGPBadPrefix, 0, 10000)}
+	scanner := bufio.NewScanner(strings.NewReader(data))
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "-") || strings.HasPrefix(line, "Prefixes longer") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+		// Skip the column header row.
+		if strings.EqualFold(fields[0], "Origin") || strings.EqualFold(fields[1], "Address") {
+			continue
+		}
+		r.Prefixes = append(r.Prefixes, BGPBadPrefix{OriginAS: fields[0], Address: fields[1]})
+	}
+	return r
+}
+
+// parseBGPPerPrefixLength parses thyme's data-pfx-nos file. The file lays out
+// "/N:count" tokens in a multi-column grid (several per line). Each token is
+// split on ":" into length (the N in /N) and count. Tokens that fail to parse
+// are skipped.
+func parseBGPPerPrefixLength(data string) *BGPPerPrefixLength {
+	r := &BGPPerPrefixLength{Counts: make([]BPGPrefixLengthCount, 0, 128)}
+	scanner := bufio.NewScanner(strings.NewReader(data))
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "-") || strings.HasPrefix(line, "Number of prefixes") {
+			continue
+		}
+		for _, tok := range strings.Fields(line) {
+			if !strings.HasPrefix(tok, "/") {
+				continue
+			}
+			colon := strings.Index(tok, ":")
+			if colon < 0 {
+				continue
+			}
+			lengthStr := tok[1:colon] // strip leading "/"
+			countStr := tok[colon+1:]
+			length, err := strconv.Atoi(lengthStr)
+			if err != nil {
+				continue
+			}
+			count, err := strconv.Atoi(countStr)
+			if err != nil {
+				continue
+			}
+			r.Counts = append(r.Counts, BPGPrefixLengthCount{Length: length, Count: count, Raw: tok})
+		}
+	}
+	return r
+}
+
+// parseBGPUsedAutnums parses thyme's data-used-autnums file. Each line is
+// "<ASN> <Name> - <Description>, <CC>", e.g. "1 LVLT-1 - Level 3 Parent, LLC, US".
+// The ASN is the first whitespace field; the country code is the text after the
+// final comma; the FullName is everything between them.
+func parseBGPUsedAutnums(data string) *BGPUsedAutnums {
+	r := &BGPUsedAutnums{Autnums: make([]BGPUsedAutnum, 0, 80000)}
+	scanner := bufio.NewScanner(strings.NewReader(data))
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		asn := fields[0]
+		// Country code is the token after the last comma.
+		commaIdx := strings.LastIndex(line, ",")
+		if commaIdx < 0 {
+			continue
+		}
+		country := strings.TrimSpace(line[commaIdx+1:])
+		// FullName is the text between the ASN and the comma (exclusive).
+		rest := strings.TrimSpace(line[len(asn):commaIdx])
+		// Name is the first whitespace field of rest.
+		nameFields := strings.Fields(rest)
+		name := ""
+		if len(nameFields) > 0 {
+			name = nameFields[0]
+		}
+		r.Autnums = append(r.Autnums, BGPUsedAutnum{
+			ASN:      asn,
+			Name:     name,
+			Country:  country,
+			FullName: rest,
+		})
+	}
+	return r
+}
+
+// parseBGPSparPrefixes parses thyme's data-spar file. After a header, each line
+// is "<Prefix><TAB>OriginAS<TAB>Description". The description may contain
+// spaces, so the line is split into at most 3 fields by tab (falling back to
+// any-whitespace when the tab split yields only 2 fields).
+func parseBGPSparPrefixes(data string) *BGPSparPrefixes {
+	r := &BGPSparPrefixes{Prefixes: make([]BGPSparPrefix, 0, 64)}
+	scanner := bufio.NewScanner(strings.NewReader(data))
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "-") || strings.HasPrefix(line, "Prefixes from") {
+			continue
+		}
+		// Tab-split first; if it yields 2 fields, the description is empty.
+		fields := strings.Split(line, "\t")
+		if len(fields) < 2 {
+			fields = strings.Fields(line)
+			if len(fields) < 2 {
+				continue
+			}
+		}
+		// Skip column header.
+		if strings.EqualFold(fields[0], "Prefix") {
+			continue
+		}
+		prefix := strings.TrimSpace(fields[0])
+		originAS := strings.TrimSpace(fields[1])
+		desc := ""
+		if len(fields) >= 3 {
+			desc = strings.TrimSpace(strings.Join(fields[2:], " "))
+		}
+		r.Prefixes = append(r.Prefixes, BGPSparPrefix{Prefix: prefix, OriginAS: originAS, Description: desc})
+	}
+	return r
+}
+
+// parseBGPSinglePfx parses thyme's data-singlepfx file. After a header, each
+// line is "<PrefixCount><TAB><ASNCount><TAB><RIR>", e.g. "1 27539 Global".
+// Non-numeric prefix/ASN counts are skipped.
+func parseBGPSinglePfx(data string) *BGPSinglePfx {
+	r := &BGPSinglePfx{Counts: make([]BGPSinglePfxCount, 0, 32)}
+	scanner := bufio.NewScanner(strings.NewReader(data))
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "-") || strings.HasPrefix(line, "Number of ASNs") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		// Skip column header.
+		if strings.EqualFold(fields[0], "No.") {
+			continue
+		}
+		prefixCount, err := strconv.Atoi(fields[0])
+		if err != nil {
+			continue
+		}
+		asnCount, err := strconv.Atoi(fields[1])
+		if err != nil {
+			continue
+		}
+		rir := strings.Join(fields[2:], " ")
+		r.Counts = append(r.Counts, BGPSinglePfxCount{PrefixCount: prefixCount, ASNCount: asnCount, RIR: rir})
+	}
+	return r
 }
