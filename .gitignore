@@ -8,6 +8,9 @@
 # Compiled CLI binary (go build ./cmd/apnic produces ./apnic)
 /apnic
 
+# MkDocs build output (website is deployed via GitHub Actions, not committed)
+/website/site/
+
 # Test binary, built with `go test -c`
 *.test
 

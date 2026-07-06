@@ -1,14 +1,63 @@
 # apnic-skills
 
-APNIC（亚太互联网络信息中心）Go 语言 SDK，完整覆盖 APNIC 提供的所有公开数据服务与查询能力。
+[![中文版](README.zh-CN.md)](README.zh-CN.md) | **English**
 
-## 安装
+A comprehensive Go SDK for APNIC (Asia-Pacific Network Information Centre) public data services, providing full coverage of all APNIC data endpoints and query capabilities.
+
+```mermaid
+graph TB
+    subgraph SDK["apnic-skills SDK"]
+        direction TB
+        Client["Client<br/>HTTP + Anti-scraping<br/>+ Chunked Download"]
+        
+        subgraph Data["Data Fetchers"]
+            Stats["Stats<br/>delegated/extended<br/>assigned/ipv6-assigned<br/>legacy"]
+            BGP["Thyme BGP<br/>summary/raw-table<br/>asn-map/bad-prefixes<br/>used-autnums/spar"]
+            RDAP["RDAP<br/>ip/cidr/asn<br/>domain/entity<br/>search/help"]
+            Whois["Whois + Reverse DNS"]
+            IRR["IRR Database<br/>inetnum/autnum/route<br/>19 object types"]
+            RPKI["RPKI/RRDP<br/>notification/snapshot<br/>delta"]
+            REx["REx Cross-RIR<br/>resources/holder<br/>network/count"]
+            Transfers["Transfers + Changes<br/>+ telemetry"]
+        end
+        
+        subgraph Features["Built-in Features"]
+            Stealth["Browser Mimicry<br/>Headers + Jitter"]
+            Chunked["Chunked Download<br/>Range requests<br/>2MiB blocks ×4"]
+            Cache["Token Bucket Cache<br/>30min TTL default"]
+            Filter["Chain Filtering<br/>country/type/status<br/>date range"]
+            Verify["Data Integrity<br/>MD5 + PGP signature"]
+        end
+        
+        Client --> Data
+        Client --> Features
+    end
+    
+    subgraph CLI["CLI (cobra)"]
+        Commands["24 Subcommands<br/>Full SDK coverage"]
+        Flags["Global Flags<br/>--stealth --json<br/>--bgp-source --date"]
+    end
+    
+    CLI --> SDK
+    
+    subgraph APNIC["APNIC Services"]
+        FTP["ftp.apnic.net<br/>Stats/IRR/Transfers"]
+        RDAP_Svc["rdap.apnic.net"]
+        Thyme["thyme.apnic.net<br/>BGP analysis"]
+        RExAPI["api.rex.apnic.net<br/>Cross-RIR registry"]
+        WhoisSvc["whois.apnic.net:43"]
+    end
+    
+    SDK --> APNIC
+```
+
+## Installation
 
 ```bash
 go get github.com/cyberspacesec/apnic-skills
 ```
 
-## 快速开始
+## Quick Start
 
 ```go
 package main
@@ -25,7 +74,7 @@ func main() {
     client := apnic.NewClient()
     ctx := context.Background()
 
-    // RDAP 查询 IP
+    // RDAP IP lookup
     network, err := client.RDAPLookupIP(ctx, "1.1.1.1")
     if err != nil {
         log.Fatal(err)
@@ -33,14 +82,14 @@ func main() {
     fmt.Printf("Network: %s, Country: %s, Type: %s\n",
         network.Handle, network.Country, network.Type)
 
-    // 获取 Delegated Stats
+    // Fetch Delegated Stats
     entries, err := client.GetDelegatedEntries(ctx)
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Total entries: %d\n", len(entries))
 
-    // 链式过滤
+    // Chain filtering
     result := apnic.NewFilter(entries).
         ByCountry("CN").
         ByType("ipv4").
@@ -50,196 +99,415 @@ func main() {
 }
 ```
 
-## API 概览
+## Architecture Overview
 
-### 1. Delegated Stats（IP/ASN 分配记录）
+```mermaid
+flowchart LR
+    subgraph Input["User Input"]
+        CLI["CLI Command<br/>apnic <cmd> [flags]"]
+        SDK["SDK Method<br/>client.FetchX(ctx, ...)"]
+    end
+    
+    subgraph Core["SDK Core"]
+        HTTP["HTTP Client<br/>doHTTPRequest()"]
+        Stealth["Browser Headers<br/>applyBrowserHeaders()"]
+        RateLimit["Token Bucket<br/>waitRateLimit()"]
+        Jitter["Random Delay<br/>jitter()"]
+    end
+    
+    subgraph Download["Download Strategy"]
+        Probe["Range Probe<br/>GET Range:0-0"]
+        Chunked["Chunked Download<br/>2MiB × N workers"]
+        Single["Single Connection<br/>Fallback"]
+    end
+    
+    subgraph Output["Output"]
+        Parse["Parser<br/>parseXFull()"]
+        JSON["JSON Output<br/>--json flag"]
+        Human["Human-readable<br/>Tabular format"]
+    end
+    
+    CLI --> SDK --> HTTP
+    HTTP --> Stealth --> RateLimit --> Jitter
+    Jitter --> Probe
+    Probe -->|supports Range| Chunked --> Parse
+    Probe -->|no Range| Single --> Parse
+    Parse -->|flagJSON| JSON
+    Parse -->|default| Human
+```
 
-| 方法 | 说明 |
-|------|------|
-| `FetchDelegatedEntries(ctx)` | 获取最新标准版分配记录 |
-| `GetDelegatedEntries(ctx)` | 带缓存的标准版分配记录 |
-| `FetchDelegatedEntriesByDate(ctx, date)` | 获取指定日期的分配记录 |
-| `FetchDelegatedResult(ctx, date)` | 获取完整结果（含 header/summary） |
+## API Overview
 
-### 2. Extended Delegated Stats（扩展版，含组织标识）
+### 1. Delegated Stats (IP/ASN Allocation Records)
 
-| 方法 | 说明 |
-|------|------|
-| `FetchExtendedEntries(ctx)` | 获取最新扩展版分配记录 |
-| `GetExtendedEntries(ctx)` | 带缓存的扩展版分配记录 |
-| `FetchExtendedEntriesByDate(ctx, date)` | 获取指定日期的扩展版 |
-| `FetchExtendedResult(ctx, date)` | 获取完整结果（含 header/summary） |
+```mermaid
+flowchart TB
+    subgraph APNIC_FTP["APNIC FTP"]
+        Latest["delegated-apnic-latest"]
+        Archived["delegated-apnic-YYYYMMDD"]
+        ByYear["delegated-apnic-YYYY"]
+    end
+    
+    FetchDelegatedEntries --> Latest
+    FetchDelegatedEntriesByDate --> Archived
+    FetchDelegatedByYear --> ByYear
+    
+    subgraph Models["Result Models"]
+        Entry["DelegatedEntry<br/>registry|cc|type|start|value|date|status|opaque-id"]
+        Result["DelegatedResult<br/>Header + Summary + Entries"]
+    end
+    
+    Latest --> Entry
+    Archived --> Result
+```
 
-### 3. Assigned Stats（按前缀大小聚合的分配统计）
+| Method | Description |
+|--------|-------------|
+| `FetchDelegatedEntries(ctx)` | Fetch latest standard delegated stats |
+| `GetDelegatedEntries(ctx)` | Cached standard delegated stats |
+| `FetchDelegatedEntriesByDate(ctx, date)` | Fetch delegated stats by date |
+| `FetchDelegatedResult(ctx, date)` | Full result with header/summary |
+| `FetchDelegatedByYear(ctx, year)` | Fetch by year |
+| `FetchDelegatedResultByYear(ctx, year)` | Full result by year |
 
-| 方法 | 说明 |
-|------|------|
-| `FetchAssignedEntries(ctx)` | 获取最新分配统计 |
-| `GetAssignedEntries(ctx)` | 带缓存的分配统计 |
-| `FetchAssignedEntriesByDate(ctx, date)` | 获取指定日期的分配统计 |
+### 2. Extended Delegated Stats (with Organization Opaque-IDs)
 
-### 3b. IPv6 Assigned Stats（逐条 IPv6 分配记录）
+| Method | Description |
+|--------|-------------|
+| `FetchExtendedEntries(ctx)` | Fetch latest extended stats |
+| `GetExtendedEntries(ctx)` | Cached extended stats |
+| `FetchExtendedEntriesByDate(ctx, date)` | Fetch by date |
+| `FetchExtendedResult(ctx, date)` | Full result with header/summary |
+| `FetchExtendedByYear(ctx, year)` | Fetch by year |
+| `FetchExtendedResultByYear(ctx, year)` | Full result by year |
 
-| 方法 | 说明 |
-|------|------|
-| `FetchIPv6AssignedEntries(ctx)` | 获取最新逐条 IPv6 分配记录 |
-| `FetchIPv6AssignedEntriesByDate(ctx, date)` | 获取指定日期的逐条 IPv6 分配记录 |
-| `FetchIPv6AssignedResult(ctx, date)` | 获取完整结果（含 header/summary） |
+### 3. Assigned Stats (Aggregated by Prefix Size)
 
-> 与聚合版 `assigned` 不同，`ipv6-assigned` 列出每一条 IPv6 分配（`registry|cc|ipv6|start|prefix|date`），无 status/opaque-id 列。
+| Method | Description |
+|--------|-------------|
+| `FetchAssignedEntries(ctx)` | Fetch latest assigned stats |
+| `GetAssignedEntries(ctx)` | Cached assigned stats |
+| `FetchAssignedEntriesByDate(ctx, date)` | Fetch by date |
+| `FetchAssignedResult(ctx, date)` | Full result with header/summary |
 
-### 4. Legacy Stats（历史遗留资源）
+### 3b. IPv6 Assigned Stats (Per-prefix IPv6 Records)
 
-| 方法 | 说明 |
-|------|------|
-| `FetchLegacyEntries(ctx)` | 获取最新历史遗留记录 |
-| `GetLegacyEntries(ctx)` | 带缓存的历史遗留记录 |
-| `FetchLegacyEntriesByDate(ctx, date)` | 获取指定日期的历史遗留记录 |
+| Method | Description |
+|--------|-------------|
+| `FetchIPv6AssignedEntries(ctx)` | Fetch latest per-prefix IPv6 records |
+| `FetchIPv6AssignedEntriesByDate(ctx, date)` | Fetch by date |
+| `FetchIPv6AssignedResult(ctx, date)` | Full result with header/summary |
 
-### 5. RDAP 查询（结构化数据）
+> Unlike aggregated `assigned`, `ipv6-assigned` lists each IPv6 allocation (`registry|cc|ipv6|start|prefix|date`), no status/opaque-id column.
 
-| 方法 | 说明 |
-|------|------|
-| `RDAPLookupIP(ctx, ip)` | RDAP IP 地址查询 |
-| `RDAPLookupCIDR(ctx, cidr)` | RDAP CIDR 查询 |
-| `RDAPLookupASN(ctx, asn)` | RDAP ASN 查询 |
-| `RDAPLookupDomain(ctx, domain)` | RDAP 域名查询（反向 DNS） |
-| `RDAPLookupEntity(ctx, handle)` | RDAP 实体/联系人查询 |
-| `RDAPSearch(ctx, query)` | RDAP 实体名称搜索（等价于 `RDAPSearchEntities(ctx,"fn",query)`） |
-| `RDAPSearchEntities(ctx, field, query)` | RDAP 实体搜索：`field="fn"` 名称搜索（支持 `*` 通配）/ `field="handle"` 精确查找 |
-| `RDAPHelp(ctx)` | RDAP `/help`：服务能力声明（rdapConformance 扩展）与通知 |
-| `RDAPSearchDomains(ctx, name)` | RDAP `/domains`：按名称搜索 in-addr.arpa 反向 DNS 域 |
+### 4. Legacy Stats (Historical Legacy Resources)
 
-所有 RDAP lookup 均提供 `*At` 变体（如 `RDAPLookupIPAt(ctx, ip, date)`）用于点对点历史查询（RFC3339），返回该 UTC 时刻的资源状态，基于 APNIC `history_version_0` 扩展。
+| Method | Description |
+|--------|-------------|
+| `FetchLegacyEntries(ctx)` | Fetch latest legacy records |
+| `GetLegacyEntries(ctx)` | Cached legacy records |
+| `FetchLegacyEntriesByDate(ctx, date)` | Fetch by date |
+| `FetchLegacyResult(ctx, date)` | Full result with header/summary |
 
-### 6. Transfers（IP/ASN 转移记录）
+### 5. RDAP Queries (Structured Registration Data)
 
-| 方法 | 说明 |
-|------|------|
-| `FetchTransfers(ctx)` | 获取最新转移记录（每日 JSON 快照） |
-| `GetTransfers(ctx)` | 带缓存的转移记录 |
-| `FetchTransfersByYear(ctx, year)` | 获取指定年份的转移记录 |
-| `FetchTransfersAll(ctx, date)` | 获取累积 transfers-all 全集（管道分隔，自 2010 年起全部转移）；`date=""` 取最新，`YYYYMMDD` 取当日归档 |
-| `FetchTransfersAllMD5(ctx, date)` | transfers-all 的 MD5 校验值 |
-| `FetchTransfersAllASC(ctx, date)` | transfers-all 的 PGP 签名（.asc） |
+```mermaid
+flowchart TB
+    subgraph RDAP_Lookups["RDAP Lookups"]
+        IP["RDAPLookupIP(ctx, ip)"]
+        CIDR["RDAPLookupCIDR(ctx, cidr)"]
+        ASN["RDAPLookupASN(ctx, asn)"]
+        Domain["RDAPLookupDomain(ctx, domain)"]
+        Entity["RDAPLookupEntity(ctx, handle)"]
+    end
+    
+    subgraph RDAP_Search["RDAP Search"]
+        Search["RDAPSearch(ctx, query)"]
+        SearchEntities["RDAPSearchEntities(ctx, field, query)"]
+        SearchDomains["RDAPSearchDomains(ctx, name)"]
+    end
+    
+    subgraph RDAP_Meta["RDAP Meta"]
+        Help["RDAPHelp(ctx)"]
+    end
+    
+    subgraph RDAP_At["Point-in-time (*At)"]
+        IPAt["RDAPLookupIPAt(ctx, ip, date)"]
+        CIDRAt["RDAPLookupCIDRAt(ctx, cidr, date)"]
+        ASNAt["RDAPLookupASNAt(ctx, asn, date)"]
+        DomainAt["RDAPLookupDomainAt(ctx, domain, date)"]
+        EntityAt["RDAPLookupEntityAt(ctx, handle, date)"]
+    end
+    
+    RDAP_Lookups -->|"--date flag"| RDAP_At
+```
 
-### 7. Changes（资源变更记录）
+| Method | Description |
+|--------|-------------|
+| `RDAPLookupIP(ctx, ip)` | RDAP IP address lookup |
+| `RDAPLookupCIDR(ctx, cidr)` | RDAP CIDR block lookup |
+| `RDAPLookupASN(ctx, asn)` | RDAP ASN lookup |
+| `RDAPLookupDomain(ctx, domain)` | RDAP domain lookup (reverse DNS) |
+| `RDAPLookupEntity(ctx, handle)` | RDAP entity/contact lookup |
+| `RDAPSearch(ctx, query)` | RDAP entity name search (equivalent to `RDAPSearchEntities(ctx, "fn", query)`) |
+| `RDAPSearchEntities(ctx, field, query)` | RDAP entity search: `field="fn"` (name, wildcards `*`) / `field="handle"` (exact) |
+| `RDAPHelp(ctx)` | RDAP `/help`: server capability (rdapConformance) and notices |
+| `RDAPSearchDomains(ctx, name)` | RDAP `/domains`: search in-addr.arpa domains by name |
 
-| 方法 | 说明 |
-|------|------|
-| `FetchChanges(ctx)` | 获取最新变更记录 |
-| `GetChanges(ctx)` | 带缓存的变更记录 |
-| `FetchChangesByDate(ctx, date)` | 获取指定日期的变更记录 |
+All RDAP lookups have `*At` variants (e.g., `RDAPLookupIPAt(ctx, ip, date)`) for point-in-time historical queries (RFC3339), returning the resource state at that UTC instant, based on APNIC `history_version_0` extension.
 
-### 7b. Whois/RDAP 服务遥测
+### 6. Transfers (IP/ASN Transfer Records)
 
-| 方法 | 说明 |
-|------|------|
-| `FetchTelemetry(ctx, date)` | 获取 whois-rdap-stats 遥测（每小时发布）：查询总量、按类型分布、Top ASN；`date=""` 取最新 |
-| `FetchTelemetryMD5(ctx, date)` | 遥测 JSON 的 MD5 校验值 |
+| Method | Description |
+|--------|-------------|
+| `FetchTransfers(ctx)` | Fetch latest transfer records (daily JSON snapshot) |
+| `GetTransfers(ctx)` | Cached transfer records |
+| `FetchTransfersByYear(ctx, year)` | Fetch transfers by year |
+| `FetchTransfersAll(ctx, date)` | Fetch cumulative transfers-all (pipe-delimited, all transfers since 2010); `date=""` for latest, `YYYYMMDD` for archive |
+| `FetchTransfersAllMD5(ctx, date)` | MD5 checksum for transfers-all |
+| `FetchTransfersAllASC(ctx, date)` | PGP signature (.asc) for transfers-all |
 
-### 7c. IRR 全量转储（RPSL）
+### 7. Changes (Resource Change Records)
 
-| 方法 | 说明 |
-|------|------|
-| `FetchIRRDatabase(ctx, objType)` | 获取并解析指定类型的 IRR 数据库转储（`apnic.db.<type>.gz`），`objType` 见 `IRRObjectTypes`（19 类） |
-| `GetIRRDatabase(ctx, objType)` | 带缓存的 IRR 数据库转储 |
-| `FetchIRRCurrentSerial(ctx)` | 获取 `APNIC.CURRENTSERIAL`（IRR 数据库当前序号） |
+| Method | Description |
+|--------|-------------|
+| `FetchChanges(ctx)` | Fetch latest change records |
+| `GetChanges(ctx)` | Cached change records |
+| `FetchChangesByDate(ctx, date)` | Fetch changes by date |
 
-> `domain` 类型的 IRR 转储承载反向 DNS 委派信息（`x.in-addr.arpa` + `nserver`/`zone-c`）。
+### 7b. Whois/RDAP Service Telemetry
 
-### 7d. thyme BGP 路由表分析
+| Method | Description |
+|--------|-------------|
+| `FetchTelemetry(ctx, date)` | Fetch whois-rdap-stats telemetry (hourly): query volume, type distribution, top ASN; `date=""` for latest |
+| `FetchTelemetryMD5(ctx, date)` | MD5 checksum for telemetry JSON |
 
-| 方法 | 说明 |
-|------|------|
-| `FetchBGPSummary(ctx)` | 获取 thyme `data-summary`：BGP 路由表分析指标（条目数、AS 数、ROA 覆盖、地址空间占比等，冒号键值） |
-| `FetchBGPRawTable(ctx)` | 获取 thyme `data-raw-table`：每条已宣告路由 `prefix\tASN` |
-| `FetchBGPASNMap(ctx)` | 按 origin ASN 聚合 raw table（本地派生，无额外请求） |
-| `FetchBGPBadPrefixes(ctx, source)` | 获取 thyme `data-badpfx-nos`：长度超过 /24 的前缀及其 origin AS（疑似路由泄漏） |
-| `FetchBGPPerPrefixLength(ctx, source)` | 获取 thyme `data-pfx-nos`：按前缀长度统计已宣告前缀数（/N:count 网格） |
-| `FetchBGPUsedAutnums(ctx, source)` | 获取 thyme `data-used-autnums`：所有在用 ASN 及注册名、国家码 |
-| `FetchBGPSparPrefixes(ctx, source)` | 获取 thyme `data-spar`：特殊用途地址注册表（RFC 6890）前缀及 origin AS |
-| `FetchBGPSinglePfx(ctx, source)` | 获取 thyme `data-singlepfx`：宣告少于 20 个前缀的 ASN 计数（按 RIR 分组） |
+### 7c. IRR Database Dump (RPSL)
 
-> `source` 为 per-call 数据源参数：`"current"`（默认，全球视图）、`"au"`（Brisbane）、`"hk"`（HKIX），空串走客户端默认（`WithThymeSource` 设置，默认 `current`）。
+```mermaid
+flowchart LR
+    subgraph IRR_Types["IRR Object Types (19)"]
+        inetnum["inetnum<br/>IP allocation"]
+        inet6num["inet6num<br/>IPv6 allocation"]
+        autnum["aut-num<br/>ASN"]
+        route["route<br/>IPv4 prefix"]
+        route6["route6<br/>IPv6 prefix"]
+        domain["domain<br/>reverse DNS delegation"]
+        as_set["as-set<br/>AS group"]
+        route_set["route-set<br/>prefix group"]
+        peering_set["peering-set"]
+        other["... (19 types)"]
+    end
+    
+    FetchIRRDatabase --> IRR_Types
+```
+
+| Method | Description |
+|--------|-------------|
+| `FetchIRRDatabase(ctx, objType)` | Fetch and parse IRR database dump (`apnic.db.<type>.gz`), `objType` in `IRRObjectTypes` (19 types) |
+| `GetIRRDatabase(ctx, objType)` | Cached IRR database dump |
+| `FetchIRRCurrentSerial(ctx)` | Fetch `APNIC.CURRENTSERIAL` (current IRR serial number) |
+
+> `domain` type IRR dump contains reverse DNS delegation info (`x.in-addr.arpa` + `nserver`/`zone-c`).
+
+### 7d. thyme BGP Routing Table Analysis
+
+```mermaid
+flowchart TB
+    subgraph Thyme_Sources["thyme Data Sources"]
+        Current["current<br/>Global view (default)"]
+        AU["au<br/>Brisbane"]
+        HK["hk<br/>HKIX"]
+    end
+    
+    subgraph Thyme_Files["thyme Files"]
+        Summary["data-summary<br/>Key metrics<br/>(entries, AS count,<br/>ROA coverage, etc.)"]
+        RawTable["data-raw-table<br/>Every announced route<br/>prefix → ASN"]
+        BadPfx["data-badpfx-nos<br/>Prefixes longer than /24<br/>+ origin AS"]
+        PfxNos["data-pfx-nos<br/>Prefix count by length"]
+        UsedAutnums["data-used-autnums<br/>All in-use ASN<br/>+ name + country"]
+        SPAR["data-spar<br/>RFC 6890<br/>Special-purpose prefixes"]
+        SinglePfx["data-singlepfx<br/>ASN count<br/>(<20 prefixes)"]
+    end
+    
+    Current --> Thyme_Files
+    AU --> Thyme_Files
+    HK --> Thyme_Files
+    
+    FetchBGPSummary --> Summary
+    FetchBGPRawTable --> RawTable
+    FetchBGPASNMap -->|"local aggregation"| RawTable
+    FetchBGPBadPrefixes --> BadPfx
+    FetchBGPPerPrefixLength --> PfxNos
+    FetchBGPUsedAutnums --> UsedAutnums
+    FetchBGPSparPrefixes --> SPAR
+    FetchBGPSinglePfx --> SinglePfx
+```
+
+| Method | Description |
+|--------|-------------|
+| `FetchBGPSummary(ctx)` | Fetch thyme `data-summary`: BGP table metrics (entry count, AS count, ROA coverage, address space %, colon-separated key-value) |
+| `FetchBGPRawTable(ctx)` | Fetch thyme `data-raw-table`: every announced route `prefix\tASN` |
+| `FetchBGPASNMap(ctx)` | Aggregate raw table by origin ASN (local derivation, no extra request) |
+| `FetchBGPBadPrefixes(ctx, source)` | Fetch thyme `data-badpfx-nos`: prefixes longer than /24 with origin AS (route leak candidates) |
+| `FetchBGPPerPrefixLength(ctx, source)` | Fetch thyme `data-pfx-nos`: prefix count per prefix length (/N:count grid) |
+| `FetchBGPUsedAutnums(ctx, source)` | Fetch thyme `data-used-autnums`: all in-use ASN with registered name, country code |
+| `FetchBGPSparPrefixes(ctx, source)` | Fetch thyme `data-spar`: RFC 6890 Special Purpose Address Registry prefixes with origin AS |
+| `FetchBGPSinglePfx(ctx, source)` | Fetch thyme `data-singlepfx`: ASN count announcing fewer than 20 prefixes (grouped by RIR) |
+
+> `source` is per-call data source: `"current"` (default, global), `"au"` (Brisbane), `"hk"` (HKIX). Empty string uses client default (`WithThymeSource`, default `current`).
 
 ### 7e. RPKI / RRDP
 
-| 方法 | 说明 |
-|------|------|
-| `FetchRRDPNotification(ctx)` | 获取 RRDP `notification.xml`：session_id、serial、当前 snapshot 引用与 deltas 列表 |
-| `FetchRRDPSnapshot(ctx, uri)` | 流式解析 RRDP snapshot.xml：仅保留 `<publish>`/`<withdraw>` 的 rsync URI，丢弃 base64 CMS body（边界内存） |
-| `FetchRRDPDelta(ctx, uri)` | 流式解析 RRDP delta.xml（增量更新，格式同 snapshot） |
+```mermaid
+flowchart LR
+    subgraph RRDP_Files["RRDP Files"]
+        Notification["notification.xml<br/>session_id + serial<br/>+ snapshot ref + deltas"]
+        Snapshot["snapshot.xml<br/>Full state<br/>(publish/withdraw)"]
+        Delta["delta.xml<br/>Incremental update"]
+    end
+    
+    FetchRRDPNotification --> Notification
+    Notification -->|"URI"| FetchRRDPSnapshot --> Snapshot
+    Notification -->|"URI"| FetchRRDPDelta --> Delta
+```
 
-### 7f. REx 跨 RIR 资源注册库
+| Method | Description |
+|--------|-------------|
+| `FetchRRDPNotification(ctx)` | Fetch RRDP `notification.xml`: session_id, serial, current snapshot reference and delta list |
+| `FetchRRDPSnapshot(ctx, uri)` | Stream-parse RRDP snapshot.xml: only `<publish>`/`<withdraw>` rsync URIs, discard base64 CMS body (memory-bound) |
+| `FetchRRDPDelta(ctx, uri)` | Stream-parse RRDP delta.xml (incremental, same format as snapshot) |
 
-REx（Resource EXplorer，`api.rex.apnic.net/v1/*`）是 APNIC 提供的公开 REST API，将五大 RIR（APNIC/ARIN/RIPE/LACNIC/AFRINIC）的委派资源聚合为统一视图，并按持有组织（opaqueId）归集。这是各 RIR 独立 stats/RDAP 无法替代的能力：
+### 7f. REx Cross-RIR Resource Registry
 
-| 方法 | 说明 |
-|------|------|
-| `FetchRExUserNetwork(ctx)` | 自定位网络：按调用方源 IP 返回覆盖前缀、起源 ASN、经济体代码（无需参数） |
-| `FetchRExResources(ctx, type)` | 跨 RIR 最近委派资源视图（带持有者归因），`type` 可为 `ipv4`/`ipv6`/`asn` 或空 |
-| `FetchRExHolder(ctx, opaqueID, rir)` | 按 opaqueId 聚合某组织持有的全部 ASN 与前缀及规模指标 |
-| `FetchRExHoldersUniqueCount(ctx)` | 全 RIR 去重持有者总数 |
+```mermaid
+flowchart TB
+    subgraph RIRs["5 RIRs"]
+        APNIC["APNIC"]
+        ARIN["ARIN"]
+        RIPE["RIPE NCC"]
+        LACNIC["LACNIC"]
+        AFRINIC["AFRINIC"]
+    end
+    
+    subgraph REx["REx API (api.rex.apnic.net)"]
+        Network["network<br/>Auto-detect caller's<br/>covering prefix + ASN"]
+        Resources["resources<br/>Recent delegated<br/>ipv4|ipv6|asn"]
+        Holder["holder<br/>Aggregate by<br/>opaqueId + rir"]
+        Count["count<br/>Unique holder<br/>count (5 RIR)"]
+    end
+    
+    RIRs -->|"aggregated"| REx
+    
+    FetchRExUserNetwork --> Network
+    FetchRExResources --> Resources
+    FetchRExHolder --> Holder
+    FetchRExHoldersUniqueCount --> Count
+```
 
-> `rir` 取值为 `afrinic`/`apnic`/`arin`/`lacnic`/`ripencc`（RIPE NCC 的代码是 `ripencc`，不是 `ripe`）。`opaqueId` 可从 `RExResource.OpaqueID` 或扩展 delegated stats 获取。REx 走 HTTPS 公开 API，复用统一 HTTP 出口，自动获益于反爬伪装。
+REx (Resource EXplorer, `api.rex.apnic.net/v1/*`) is a public REST API from APNIC that aggregates delegated resources across all five RIRs (APNIC/ARIN/RIPE/LACNIC/AFRINIC) into a unified view, grouped by resource holder (opaqueId). This capability cannot be replaced by per-RIR stats/RDAP:
 
-### 8. Whois 查询
+| Method | Description |
+|--------|-------------|
+| `FetchRExUserNetwork(ctx)` | Self-locate network: return covering prefix, origin ASN, economy code based on caller's source IP (no parameters) |
+| `FetchRExResources(ctx, type)` | Cross-RIR recent delegated resources (with holder attribution), `type` can be `ipv4`/`ipv6`/`asn` or empty |
+| `FetchRExHolder(ctx, opaqueID, rir)` | Aggregate all ASN and prefixes held by one organization, given opaqueId and responsible RIR |
+| `FetchRExHoldersUniqueCount(ctx)` | Total unique holder count across all RIRs |
 
-| 方法 | 说明 |
-|------|------|
-| `QueryWhois(ctx, query)` | 原始 Whois 查询 |
-| `QueryWhoisIP(ctx, ip)` | IP 地址 Whois 查询（返回解析结果） |
-| `QueryWhoisASN(ctx, asn)` | ASN Whois 查询（返回解析结果） |
-| `QueryWhoisWithFlags(ctx, query, flags)` | 带标志的 Whois 查询 |
-| `ParseWhoisResponse(response)` | 解析 Whois 响应文本 |
+> `rir` values: `afrinic`/`apnic`/`arin`/`lacnic`/`ripencc` (RIPE NCC code is `ripencc`, not `ripe`). `opaqueId` can be obtained from `RExResource.OpaqueID` or extended delegated stats. REx uses HTTPS public API, shares unified HTTP client, inherits anti-scraping headers.
 
-### 9. 反向 DNS
+### 8. Whois Queries
 
-| 方法 | 说明 |
-|------|------|
-| `ReverseDNS(ctx, ip)` | IP 反向 DNS 解析 |
+| Method | Description |
+|--------|-------------|
+| `QueryWhois(ctx, query)` | Raw Whois query |
+| `QueryWhoisIP(ctx, ip)` | IP address Whois query (parsed result) |
+| `QueryWhoisASN(ctx, asn)` | ASN Whois query (parsed result) |
+| `QueryWhoisWithFlags(ctx, query, flags)` | Whois query with flags |
+| `ParseWhoisResponse(response)` | Parse Whois response text |
 
-### 10. 历史数据
+### 9. Reverse DNS
 
-| 方法 | 说明 |
-|------|------|
-| `FetchHistoricalDelegated(ctx, date)` | 获取指定日期的历史分配数据 |
-| `FetchHistoricalExtended(ctx, date)` | 获取指定日期的历史扩展数据 |
-| `FetchHistoricalAssigned(ctx, date)` | 获取指定日期的历史分配统计 |
-| `FetchHistoricalLegacy(ctx, date)` | 获取指定日期的历史遗留数据 |
-| `FetchDelegatedByYear(ctx, year)` | 获取指定年份的分配数据 |
-| `FetchExtendedByYear(ctx, year)` | 获取指定年份的扩展数据 |
-| `ListAvailableYears()` | 列出可用的历史数据年份 |
+| Method | Description |
+|--------|-------------|
+| `ReverseDNS(ctx, ip)` | IP reverse DNS (PTR) lookup |
 
-### 11. 数据校验
+### 10. Historical Data
 
-| 方法 | 说明 |
-|------|------|
-| `VerifyMD5(ctx, dataType, date)` | 端到端校验：下载数据文件 + MD5 旁挂文件，本地计算并比对 |
-| `FetchMD5Checksum(ctx, dataType, date)` | 获取 MD5 校验值（兼容 BSD `MD5 (file) =` 与 GNU 风格） |
-| `FetchASCSignature(ctx, dataType, date)` | 获取 PGP 签名（.asc） |
-| `FetchPublicKey(ctx)` | 获取 APNIC 签名公钥（CURRENT_PUBLIC_KEY） |
+| Method | Description |
+|--------|-------------|
+| `FetchHistoricalDelegated(ctx, date)` | Fetch historical delegated data by date |
+| `FetchHistoricalExtended(ctx, date)` | Fetch historical extended data by date |
+| `FetchHistoricalAssigned(ctx, date)` | Fetch historical assigned stats by date |
+| `FetchHistoricalLegacy(ctx, date)` | Fetch historical legacy data by date |
+| `FetchDelegatedByYear(ctx, year)` | Fetch delegated data by year |
+| `FetchExtendedByYear(ctx, year)` | Fetch extended data by year |
+| `ListAvailableYears()` | List available historical data years |
 
-### 12. 过滤与分组
+### 11. Data Integrity Verification
 
-| 方法 | 说明 |
-|------|------|
-| `FilterEntries(entries, country, resType)` | 按国家和类型过滤 |
-| `FilterByStatus(entries, status)` | 按状态过滤 |
-| `FilterByDateRange(entries, start, end)` | 按日期范围过滤 |
-| `FilterExtendedByOpaqueID(entries, opaqueID)` | 按组织标识过滤 |
-| `FilterExtendedByCountry(entries, country)` | 按国家过滤扩展版 |
-| `FilterExtendedByType(entries, resType)` | 按类型过滤扩展版 |
-| `FilterExtendedByStatus(entries, status)` | 按状态过滤扩展版 |
-| `GroupByCountry(entries)` | 按国家分组 |
-| `GroupExtendedByOpaqueID(entries)` | 按组织分组 |
-| `GroupExtendedByCountry(entries)` | 按国家分组扩展版 |
+```mermaid
+flowchart LR
+    subgraph Verify_Flow["Verification Flow"]
+        Data["Download<br/>data file"]
+        MD5_File["Download<br/>.md5 file"]
+        ASC_File["Download<br/>.asc file"]
+        PubKey["Fetch<br/>CURRENT_PUBLIC_KEY"]
+        
+        Calc["Compute<br/>local MD5"]
+        Compare["Compare<br/>MD5 strings"]
+        PGP_Verify["PGP<br/>signature verify"]
+    end
+    
+    Data --> Calc --> Compare
+    MD5_File --> Compare
+    ASC_File --> PGP_Verify
+    PubKey --> PGP_Verify
+    Data --> PGP_Verify
+```
 
-### 13. 链式过滤 API
+| Method | Description |
+|--------|-------------|
+| `VerifyMD5(ctx, dataType, date)` | End-to-end: download data file + MD5 sidecar, compute locally and compare |
+| `FetchMD5Checksum(ctx, dataType, date)` | Fetch MD5 checksum (compatible with BSD `MD5 (file) =` and GNU style) |
+| `FetchASCSignature(ctx, dataType, date)` | Fetch PGP signature (.asc) |
+| `FetchPublicKey(ctx)` | Fetch APNIC signing public key (CURRENT_PUBLIC_KEY) |
+
+### 12. Filtering & Grouping
+
+| Method | Description |
+|--------|-------------|
+| `FilterEntries(entries, country, resType)` | Filter by country and type |
+| `FilterByStatus(entries, status)` | Filter by status |
+| `FilterByDateRange(entries, start, end)` | Filter by date range |
+| `FilterExtendedByOpaqueID(entries, opaqueID)` | Filter by organization ID |
+| `FilterExtendedByCountry(entries, country)` | Filter extended by country |
+| `FilterExtendedByType(entries, resType)` | Filter extended by type |
+| `FilterExtendedByStatus(entries, status)` | Filter extended by status |
+| `GroupByCountry(entries)` | Group by country |
+| `GroupExtendedByOpaqueID(entries)` | Group by organization |
+| `GroupExtendedByCountry(entries)` | Group extended by country |
+
+### 13. Chain Filtering API
+
+```mermaid
+flowchart LR
+    Entries["Entries<br/>Input"]
+    
+    subgraph Filter_Chain["Chain Filter"]
+        ByCountry["ByCountry(cn)"]
+        ByType["ByType(ipv4)"]
+        ByStatus["ByStatus(allocated)"]
+        ByDateRange["ByDateRange(start, end)"]
+    end
+    
+    Result["Result<br/>Filtered entries"]
+    
+    Entries --> ByCountry --> ByType --> ByStatus --> ByDateRange --> Result
+```
 
 ```go
-// 标准版链式过滤
+// Standard chain filtering
 result := apnic.NewFilter(entries).
     ByCountry("CN").
     ByType("ipv4").
@@ -247,7 +515,7 @@ result := apnic.NewFilter(entries).
     ByDateRange(start, end).
     Result()
 
-// 扩展版链式过滤
+// Extended chain filtering
 extResult := apnic.NewExtendedFilter(extEntries).
     ByCountry("JP").
     ByType("ipv6").
@@ -255,20 +523,20 @@ extResult := apnic.NewExtendedFilter(extEntries).
     Result()
 ```
 
-### 14. CIDR 计算
+### 14. CIDR Calculation
 
 ```go
-// 标准版
+// Standard version
 cidr, err := entry.CIDR()
 
-// 扩展版
+// Extended version
 cidr, err := extEntry.CIDR()
 
-// 历史遗留版
+// Legacy version
 cidr, err := legacyEntry.CIDR()
 ```
 
-## 客户端配置
+## Client Configuration
 
 ```go
 client := apnic.NewClient(
@@ -281,83 +549,166 @@ client := apnic.NewClient(
 )
 ```
 
-### 反爬与浏览器伪装（默认开启）
+### Anti-Scraping & Browser Mimicry (Default On)
 
-为避免被目标站点识别为爬虫，SDK 默认启用浏览器伪装中间件：所有 HTTP 出口（含 whois 抖动）注入主流 Chrome 的完整请求头（UA、Accept-Language、Sec-Fetch-*、Sec-Ch-Ua-* 等），并在请求间加入令牌桶限速与随机抖动。可通过 Option 调整或关闭：
+To avoid being detected as a scraper, SDK enables browser mimicry middleware by default: all HTTP exits (including whois jitter) inject mainstream Chrome request headers (UA, Accept-Language, Sec-Fetch-*, Sec-Ch-Ua-*, etc.), plus token bucket rate limiting and random jitter between requests. Adjustable via Options:
 
 ```go
 client := apnic.NewClient(
-    apnic.WithStealth(true),                       // 默认 true；false 时仅发 UA+Accept（向后兼容）
-    apnic.WithBrowserUserAgent("Mozilla/5.0 ..."), // 自定义浏览器 UA
-    apnic.WithJitter(200*time.Millisecond, 800*time.Millisecond), // 每请求随机延迟区间
-    apnic.WithRateLimit(2.0),                      // 全局每秒最大请求数（令牌桶，0=不限速）
-    apnic.WithFTPBaseURL(apnic.DefaultFTPBaseURL),  // IRR/transfers-all/telemetry 的 FTP 根
+    apnic.WithStealth(true),                       // default true; false sends only UA+Accept (backward compatible)
+    apnic.WithBrowserUserAgent("Mozilla/5.0 ..."), // custom browser UA
+    apnic.WithJitter(200*time.Millisecond, 800*time.Millisecond), // random delay range per request
+    apnic.WithRateLimit(2.0),                      // global max requests per second (token bucket, 0=unlimited)
+    apnic.WithFTPBaseURL(apnic.DefaultFTPBaseURL),  // FTP root for IRR/transfers-all/telemetry
     apnic.WithRRDPBaseURL(apnic.DefaultRRDPBaseURL),
     apnic.WithThymeBaseURL(apnic.DefaultThymeBaseURL),
-    apnic.WithRExBaseURL(apnic.DefaultRExBaseURL),  // REx 跨 RIR 资源注册库
+    apnic.WithRExBaseURL(apnic.DefaultRExBaseURL),  // REx cross-RIR registry
 )
 ```
 
-> 兼容性说明：stealth 开启时设置 `Accept-Encoding: gzip`，Go Transport 不会自动解压，故 `fetchText`、RRDP 流式解析器与 REx `fetchJSON` 均显式处理 `Content-Encoding: gzip`，避免双重解压。测试中可用 `APNIC_NO_JITTER=1` 跳过抖动以加速。
+> Compatibility: when stealth is on, sets `Accept-Encoding: gzip`. Go Transport won't auto-decompress, so `fetchText`, RRDP stream parsers and REx `fetchJSON` explicitly handle `Content-Encoding: gzip` to avoid double decompression. Test with `APNIC_NO_JITTER=1` to skip jitter for speed.
 
-### 大文件分块下载（默认开启）
+### Chunked Download for Large Files (Default On)
 
-APNIC FTP 对大文件（delegated 4.3MB、extended、IRR `apnic.db.inetnum.gz` 50MB+ 等）实施**单连接带宽限速 ~8-22 KB/s**——这不是反爬检测（任意 UA 速度相同、无 403、响应头正常 `accept-ranges: bytes`），而是服务器级限流。单连接下载 50MB 的 IRR dump 需 ~40 分钟，远超常规超时。
+APNIC FTP throttles large files (delegated 4.3MB, extended, IRR `apnic.db.inetnum.gz` 50MB+) to **single-connection bandwidth ~8-22 KB/s**—this is not anti-scrap detection (same speed for any UA, no 403, normal `accept-ranges: bytes`), but server-level rate limiting. Single connection for 50MB IRR dump takes ~40 min, far exceeding typical timeouts.
 
-SDK 默认启用**多连接分块下载**：探测支持 Range 后，将文件切成 ~2MB 的小块，以 4 个并发 Range 请求轮转下载（每连接独立限速，总吞吐提升 3-4 倍），再用 `io.Pipe` 流式合并、按需 gzip 解压。每个分块请求仍走 `doHTTPRequest`，完整继承浏览器伪装头 + 令牌桶限速 + 抖动。不支持 Range 或传输层 gzip 的端点透明回退单连接。
+SDK enables **multi-connection chunked download** by default: probe Range support, then split file into ~2MB chunks, download with 4 concurrent Range requests in round-robin (each connection independently rate-limited, total throughput 3-4×), merge via `io.Pipe` with on-demand gzip decompression. Each chunk request goes through `doHTTPRequest`, inherits full browser headers + token bucket + jitter. Endpoints without Range support or with transport-layer gzip transparently fall back to single connection.
+
+```mermaid
+flowchart TB
+    subgraph Chunked_Download["Chunked Download Flow"]
+        Probe["Probe Range<br/>GET Range:0-0<br/>→ Content-Length<br/>→ supports Range?"]
+        
+        subgraph Strategy["Download Strategy"]
+            Chunked["Chunked<br/>Split into 2MiB<br/>4 workers × N blocks"]
+            Single["Single Connection<br/>Fallback (no Range)"]
+        end
+        
+        subgraph Workers["Concurrent Workers"]
+            W1["Worker 1<br/>Range 0-2MiB"]
+            W2["Worker 2<br/>Range 2MiB-4MiB"]
+            W3["Worker 3<br/>Range 4MiB-6MiB"]
+            W4["Worker 4<br/>Range 6MiB-..."]
+        end
+        
+        Merge["Merge via io.Pipe<br/>Ordered by index"]
+        Decompress["gzip.NewReader<br/>if .gz"]
+        Result["Result<br/>io.Reader"]
+    end
+    
+    Probe -->|supports Range| Chunked --> Workers --> Merge --> Decompress --> Result
+    Probe -->|no Range| Single --> Decompress --> Result
+```
 
 ```go
 client := apnic.NewClient(
-    apnic.WithMaxConcurrentDownloads(4),             // 并发 Range 请求数（0/1 禁用分块）
-    apnic.WithChunkSize(2*1024*1024),                // 显式每块大小；默认 2MiB
-    apnic.WithDownloadTimeout(5*time.Minute),        // 单块超时（建议 ≥ 单块大小/8KBps）
+    apnic.WithMaxConcurrentDownloads(4),             // concurrent Range requests (0/1 disables chunking)
+    apnic.WithChunkSize(2*1024*1024),                // explicit chunk size; default 2MiB
+    apnic.WithDownloadTimeout(5*time.Minute),        // per-chunk timeout (recommend ≥ chunk_size/8KBps)
 )
 ```
 
-> 选块策略：默认每块 2MiB（在 22KB/s 限速下约 90 秒下完，远低于建议的 5 分钟单块超时）。`maxConcurrent` 仅控制并发数，不限制块数——50MB 文件会切成 ~25 块经 4 个 worker 轮转。块数硬上限 64，并发硬上限 16，避免对服务器造成压力。若仍遇单块超时，可调小 `WithChunkSize`（如 1MiB）或调大 `WithDownloadTimeout`。
+> Chunk strategy: default 2MiB per chunk (~90s at 22KB/s, well below suggested 5min per-chunk timeout). `maxConcurrent` controls concurrency, not chunk count—50MB file splits into ~25 chunks rotated via 4 workers. Hard caps: 64 chunks max, 16 concurrency max, to avoid server pressure. If per-chunk timeout still triggers, reduce `WithChunkSize` (e.g., 1MiB) or increase `WithDownloadTimeout`.
 >
-> 慢块容错：当某个分块因连接卡住触发 `context deadline exceeded` 时，SDK 会自动将该块拆成两个子块以新连接并发重试，绕开卡死的 TCP 连接，避免单点抖动拖垮整个下载。
+> Slow block tolerance: when a chunk hits `context deadline exceeded` due to stuck connection, SDK auto-splits it into two sub-chunks with new concurrent retry, bypassing the dead TCP connection, avoiding single-point jitter killing the whole download.
 
-## 命令行工具（CLI）
+## CLI (Command-Line Interface)
 
-仓库附带基于 cobra 的 `apnic` CLI，封装全部 SDK 能力：
+The repository includes a cobra-based `apnic` CLI covering all SDK capabilities:
+
+```mermaid
+graph LR
+    subgraph CLI_Commands["CLI Commands (24)"]
+        Stats["delegated<br/>extended<br/>assigned<br/>ipv6-assigned<br/>legacy<br/>years"]
+        BGP_CLI["bgp summary<br/>bgp raw-table<br/>bgp asn-map<br/>bgp bad-prefixes<br/>bgp used-autnums<br/>bgp spar-prefixes<br/>bgp single-pfx"]
+        RDAP_CLI["rdap ip/cidr/asn<br/>rdap domain/entity<br/>rdap search<br/>rdap domains<br/>rdap help"]
+        Whois_CLI["whois ip/asn/raw"]
+        Reverse["reverse-dns"]
+        IRR_CLI["irr inetnum/autnum<br/>irr route/route6<br/>irr serial"]
+        RPKI_CLI["rpki notification<br/>rpki snapshot"]
+        REx_CLI["rex network<br/>rex resources<br/>rex holder<br/>rex count"]
+        Transfer["transfers<br/>transfers-all"]
+        Change["changes"]
+        Telemetry["stats-telemetry"]
+        Verify["verify integrity<br/>verify md5/asc<br/>verify pubkey"]
+        Filter["filter"]
+        History["history"]
+    end
+```
 
 ```bash
-# 构建
+# Build
 go build -o bin/apnic ./cmd/apnic
 
-# 示例
+# Examples
 apnic delegated --json | jq '.Entries | length'
 apnic filter --source delegated --country CN --type ipv4
 apnic rdap ip 1.1.1.1 --date 2020-06-01T00:00:00Z
-apnic rdap help            # RDAP 服务能力声明与通知
-apnic rdap domains 1       # 搜索 in-addr.arpa 反向 DNS 域
-apnic transfers-all        # 累积转移全集（自 2010）
+apnic rdap help            # RDAP server capability and notices
+apnic rdap domains 1       # Search in-addr.arpa reverse DNS domains
+apnic transfers-all        # Cumulative transfer set (since 2010)
 apnic transfers-all --date 20220904
-apnic stats-telemetry      # whois/RDAP 服务查询遥测
-apnic irr inetnum          # IRR 数据库转储（RPSL）
+apnic stats-telemetry      # whois/RDAP service query telemetry
+apnic irr inetnum          # IRR database dump (RPSL)
 apnic irr serial           # APNIC.CURRENTSERIAL
-apnic bgp summary          # thyme BGP 路由表分析指标
-apnic bgp raw-table        # thyme 原始路由表
-apnic bgp asn-map          # 按 origin ASN 聚合
-apnic bgp bad-prefixes     # 长度超过 /24 的前缀及 origin AS（路由泄漏候选）
-apnic bgp per-prefix-length  # 按前缀长度统计已宣告前缀数
-apnic bgp used-autnums     # 所有在用 ASN 及注册名/国家码
-apnic bgp spar-prefixes    # 特殊用途地址注册表（RFC 6890）前缀
-apnic bgp single-pfx       # 宣告少于 20 前缀的 ASN 计数（按 RIR）
-apnic rpki notification    # RRDP notification（session/serial/snapshot/deltas）
-apnic rpki snapshot        # 流式解析当前 snapshot
-apnic rex network          # REx 自定位网络（源 IP 的覆盖前缀/ASN/经济体）
-apnic rex resources ipv4   # 跨 RIR 最近委派资源（持有者归因）
-apnic rex holder <opaqueId> <rir>  # 聚合某组织持有的全部 ASN/前缀
-apnic rex count            # 全 RIR 去重持有者总数
+apnic bgp summary          # thyme BGP table analysis metrics
+apnic bgp raw-table        # thyme raw routing table
+apnic bgp asn-map          # Aggregate by origin ASN
+apnic bgp bad-prefixes     # Prefixes longer than /24 + origin AS (route leak candidates)
+apnic bgp per-prefix-length  # Prefix count by prefix length
+apnic bgp used-autnums     # All in-use ASN + name/country
+apnic bgp spar-prefixes    # RFC 6890 Special Purpose Address Registry prefixes
+apnic bgp single-pfx       # ASN count with <20 prefixes (by RIR)
+apnic bgp --bgp-source au  # Use Brisbane data source
+apnic rpki notification    # RRDP notification (session/serial/snapshot/deltas)
+apnic rpki snapshot        # Stream-parse current snapshot
+apnic rex network          # REx self-locate network (covering prefix/ASN/economy by source IP)
+apnic rex resources ipv4   # Cross-RIR recent delegated resources (holder attribution)
+apnic rex holder <opaqueId> <rir>  # Aggregate all ASN/prefixes held by one organization
+apnic rex count            # Unique holder count across all RIRs
 apnic verify integrity --type delegated
 ```
 
-反爬相关全局标志：`--stealth`（默认 true）、`--browser-ua`、`--jitter 200ms-800ms`、`--rate-limit`（每秒请求数）、`--ftp-base-url`/`--rrdp-base-url`/`--thyme-base-url`/`--rex-base-url`、`--bgp-source`（thyme BGP 数据源：`current`/`au`/`hk`，默认 `current`）。
+Anti-scraping global flags: `--stealth` (default true), `--browser-ua`, `--jitter 200ms-800ms`, `--rate-limit` (requests per second), `--ftp-base-url`/`--rrdp-base-url`/`--thyme-base-url`/`--rex-base-url`, `--bgp-source` (thyme BGP source: `current`/`au`/`hk`, default `current`).
 
-- 每个子命令与参数的完整说明见 [docs/SKILLS.md](docs/SKILLS.md)（渐进式披露）。
-- 多命令组合工作流（国家资源审计 / IP 全景调查 / 转移变更追踪 / 数据完整性校验）见 [docs/workflows.md](docs/workflows.md)。
+- Full subcommand and parameter documentation in [docs/SKILLS.md](docs/SKILLS.md).
+- Multi-command workflow examples (country resource audit / IP全景 investigation / transfer/change tracking / data integrity verification) in [docs/workflows.md](docs/workflows.md).
+
+## Test Coverage
+
+- SDK: **100.0%** statement coverage
+- CLI: All named functions **100%** (overall 99.1%, difference is `main()` entry `osExit(runMain())` unreachable)
+
+## Data Flow Example: IP Investigation
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant SDK as apnic-skills SDK
+    participant APNIC as APNIC Services
+    
+    User->>CLI: apnic rdap ip 1.1.1.1
+    CLI->>SDK: RDAPLookupIP(ctx, "1.1.1.1")
+    SDK->>APNIC: GET rdap.apnic.net/ip/1.1.1.1
+    APNIC-->>SDK: RDAPNetwork JSON
+    SDK-->>CLI: RDAPNetwork struct
+    CLI-->>User: Handle/Country/Type/CIDR
+    
+    User->>CLI: apnic whois ip 1.1.1.1
+    CLI->>SDK: QueryWhoisIP(ctx, "1.1.1.1")
+    SDK->>APNIC: whois.apnic.net:43
+    APNIC-->>SDK: Whois text
+    SDK-->>CLI: WhoisInfo struct
+    CLI-->>User: Network/Org/Created/Updated
+    
+    User->>CLI: apnic reverse-dns 1.1.1.1
+    CLI->>SDK: ReverseDNS(ctx, "1.1.1.1")
+    SDK->>APNIC: DNS PTR lookup
+    APNIC-->>SDK: PTR names
+    SDK-->>CLI: []string
+    CLI-->>User: one.one.one.one.
+```
 
 ## License
 
