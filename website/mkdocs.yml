@@ -168,10 +168,6 @@ plugins:
       minify_css: true
       htmlmin_opts:
         remove_comments: true
-  - redirects:
-      redirect_maps:
-        'SKILLS.md': 'sdk/index.md'
-        'workflows.md': 'workflows/index.md'
 
 extra:
   social:
