@@ -30,7 +30,7 @@ graph LR
 
 ## Global Flags
 
-These persistent flags are inherited by **every** subcommand. They configure the underlying SDK `Client` (see [`client.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/cmd/apnic/client.go)).
+These persistent flags are inherited by **every** subcommand. They configure the underlying SDK `Client` (see [`internal/transport/client.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/transport/client.go)).
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|

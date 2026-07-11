@@ -2,7 +2,7 @@
 
 The REx family models responses from APNIC's REx (Resource EXplorer) cross-RIR registry API at `api.rex.apnic.net`. REx aggregates delegated resource data across all RIRs (and NIRs where applicable), exposing per-resource, per-holder, per-source-network and aggregate-count views through a small REST surface.
 
-All types live in [`models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/models.go) and carry JSON tags matching the REx wire format.
+All types live in [`internal/models/models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/models/models.go) and carry JSON tags matching the REx wire format.
 
 ## Class Diagram
 

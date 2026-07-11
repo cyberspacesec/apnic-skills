@@ -2,7 +2,7 @@
 
 The BGP family models the data files published by APNIC's *thyme* BGP analysis service at `thyme.apnic.net`. Thyme publishes eight files; the SDK covers all eight and additionally derives an ASN→prefixes map locally from the raw route table. Three geographic views (`current`, `au`, `hk`) are exposed through the `--bgp-source` flag / `FetchBGP*` source argument.
 
-All types live in [`models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/models.go).
+All types live in [`internal/models/models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/models/models.go).
 
 ## Class Diagram
 

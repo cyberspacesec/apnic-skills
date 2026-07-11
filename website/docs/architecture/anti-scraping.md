@@ -2,7 +2,7 @@
 
 APNIC's FTP and web services throttle and, in places, shape traffic that does not look like a browser. The SDK responds with a three-part anti-scraping strategy applied inside `doHTTPRequest`: browser-mimicry request headers, a global token-bucket rate limiter, and per-request random jitter. All three are on by default and configurable via functional options.
 
-Source: [`stealth.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/stealth.go).
+Source: [`internal/transport/stealth.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/transport/stealth.go).
 
 ## Where Anti-Scraping Sits
 

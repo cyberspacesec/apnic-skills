@@ -2,7 +2,7 @@
 
 The RDAP (Registration Data Access Protocol, RFC 7483) family models JSON responses from `rdap.apnic.net`. The defining trait of this family is a shared `RDAPResponse` base struct — embedded by every top-level response type — that carries `rdapConformance`, notices, links and the `port43` whois pointer.
 
-All types live in [`models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/models.go).
+All types live in [`internal/models/models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/models/models.go).
 
 ## Class Diagram
 

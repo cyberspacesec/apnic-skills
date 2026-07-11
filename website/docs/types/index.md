@@ -2,7 +2,7 @@
 
 The `apnic-skills` SDK exposes a small set of strongly-typed Go structs that mirror the data returned by each APNIC service. Every fetcher method returns one of these types (or a slice of them), so understanding the type hierarchy is the key to working with the SDK.
 
-All types live in the root package `apnic` (file [`models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/models.go)) and are returned ready-to-use: parsing, decompression and signature verification happen inside the SDK before the result reaches the caller.
+All types live in the root package `apnic` (file [`internal/models/models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/models/models.go)) and are returned ready-to-use: parsing, decompression and signature verification happen inside the SDK before the result reaches the caller.
 
 ## Type Hierarchy
 

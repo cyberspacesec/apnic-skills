@@ -2,7 +2,7 @@
 
 The SDK ships with a small, in-process, TTL-based cache. It is not a requirement — every `Fetch*` method bypasses it — but the `Get*` methods wrap their `Fetch*` counterpart with a cache lookup so repeated calls within the TTL window return instantly without re-hitting APNIC.
 
-Source: [`cache.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/cache.go).
+Source: [`internal/transport/cache.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/transport/cache.go).
 
 ## The cache struct
 
