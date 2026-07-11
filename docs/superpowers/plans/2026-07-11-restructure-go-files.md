@@ -29,7 +29,7 @@
 - Create: `docs/superpowers/plans/.baseline-unexported-symbols.txt`
 - Run: `go test ./...` 生成基线
 
-- [ ] **Step 1: 记录当前测试基线 — 确认重组前全绿，作为回归对照**
+- [x] **Step 1: 记录当前测试基线 — 确认重组前全绿，作为回归对照**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -41,7 +41,7 @@ Expected:
   - `/tmp/apnic-baseline.txt` 末尾包含 `ok` 行（每包一行）
   - Output does NOT contain: `FAIL` 或 `build failed`
 
-- [ ] **Step 2: 生成跨文件未导出符号清单 — 识别哪些小写符号被不同文件调用，决定移动后是否需提升为导出**
+- [x] **Step 2: 生成跨文件未导出符号清单 — 识别哪些小写符号被不同文件调用，决定移动后是否需提升为导出**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -58,7 +58,7 @@ Expected:
   - 生成清单文件，列出每个被跨文件调用的未导出符号及其定义文件/调用文件
   - 该清单是 Task 2 提升-导出决策的依据
 
-- [ ] **Step 3: 记录 cmd/apnic 实际引用的根包导出符号全集 — reexport.go 必须覆盖这些符号**
+- [x] **Step 3: 记录 cmd/apnic 实际引用的根包导出符号全集 — reexport.go 必须覆盖这些符号**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -69,7 +69,7 @@ Expected:
   - Exit code: 0
   - 输出 CLI 实际用到的所有 `apnic.Xxx` 符号（约 20 个），Task 3 的 reexport.go 逐一对照
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add docs/superpowers/plans/.baseline-unexported-symbols.txt docs/superpowers/plans/.baseline-cli-symbols.txt && \
@@ -96,7 +96,7 @@ git commit -m "chore(refactor): record pre-restructure baseline (tests + unexpor
 | `internal/filter/` | `filter` | `cidr.go`, `filter.go` | 链式过滤与 CIDR 计算 |
 | `internal/history/` | `history` | `history.go` | 历史快照按日期/年份查询 |
 
-- [ ] **Step 1: 创建六个子目录骨架 — 建立分包物理结构**
+- [x] **Step 1: 创建六个子目录骨架 — 建立分包物理结构**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -107,7 +107,7 @@ Expected:
   - Exit code: 0
   - `ls internal/` 输出六个子目录
 
-- [ ] **Step 2: git mv models 层文件 — 类型定义独立成包，成对移动测试**
+- [x] **Step 2: git mv models 层文件 — 类型定义独立成包，成对移动测试**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -121,7 +121,7 @@ Expected:
   - Exit code: 0
   - `head -1 internal/models/models.go` 输出 `package models`
 
-- [ ] **Step 3: git mv transport 层文件 — Client 核心与传输基础设施成包**
+- [x] **Step 3: git mv transport 层文件 — Client 核心与传输基础设施成包**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -138,7 +138,7 @@ Expected:
   - Exit code: 0
   - `ls internal/transport/` 列出 18 个文件，`head -1 internal/transport/client.go` 输出 `package transport`
 
-- [ ] **Step 4: git mv stats 层文件 — delegated stats 五变体成包**
+- [x] **Step 4: git mv stats 层文件 — delegated stats 五变体成包**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -153,7 +153,7 @@ Expected:
   - Exit code: 0
   - `head -1 internal/stats/fetcher.go` 输出 `package stats`
 
-- [ ] **Step 5: git mv query 层文件 — 九类查询服务成包**
+- [x] **Step 5: git mv query 层文件 — 九类查询服务成包**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -169,7 +169,7 @@ Expected:
   - Exit code: 0
   - `head -1 internal/query/rdap.go` 输出 `package query`
 
-- [ ] **Step 6: git mv filter 与 history 层文件**
+- [x] **Step 6: git mv filter 与 history 层文件**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -187,7 +187,7 @@ Expected:
   - Exit code: 0
   - 四个目录各含其文件，package 名分别为 `filter`、`history`
 
-- [ ] **Step 7: 验证文件移动完整性 — 确认根目录已无 .go 文件，子目录 package 正确**
+- [x] **Step 7: 验证文件移动完整性 — 确认根目录已无 .go 文件，子目录 package 正确**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -203,7 +203,7 @@ Expected:
   - 根目录 `ls *.go` 输出 `(无，正确)`
   - 六个子包 package 声明分别匹配其目录名
 
-- [ ] **Step 8: 提交（此时编译会失败，属预期——下一 Task 修复 import）**
+- [x] **Step 8: 提交（此时编译会失败，属预期——下一 Task 修复 import）**
 
 ```bash
 git add -A && git commit -m "refactor: move root .go files into internal/{models,transport,stats,query,filter,history} subpackages"
@@ -225,7 +225,7 @@ Expected:
 - Create: 根 `doc.go`（`package apnic` 包文档）
 - Create: 根 `reexport.go`（type alias / 函数 re-export，覆盖 CLI 用到的全部符号）
 
-- [ ] **Step 1: 在每个子包 .go 文件顶部补充子包 import — 替换跨文件引用为带包前缀引用**
+- [x] **Step 1: 在每个子包 .go 文件顶部补充子包 import — 替换跨文件引用为带包前缀引用**
 
 依据 Task 1 生成的 `.baseline-unexported-symbols.txt`，对所有「定义文件与调用文件现已落入不同子包」的未导出符号，执行：
 
@@ -295,7 +295,7 @@ func FetchDelegatedEntries(ctx context.Context, c *transport.Client) ([]models.D
 }
 ```
 
-- [ ] **Step 2: 改造 transport.Client 与所有 Option — 保留 Client 类型与 NewClient 在 transport 包，方法转为独立函数或保留必要方法**
+- [x] **Step 2: 改造 transport.Client 与所有 Option — 保留 Client 类型与 NewClient 在 transport 包，方法转为独立函数或保留必要方法**
 
 ```go
 // 文件: internal/transport/client.go（替换 Client struct 与 Option 定义区块）
@@ -334,7 +334,7 @@ func NewClient(opts ...Option) *Client { /* 方法体不变 */ }
 
 **说明：** `cache`/`rateLimiter`/`downloadConfig` 类型同在 transport 包，未导出符号 `newCache`/`newRateLimiter` 仍同包可访问，无需改动。`Client` 的方法（`fetchText`/`fetchTextStr`/`fetchReader`/`downloadChunked`/`doHTTPRequest`/`jitter`/`waitRateLimit`/`applyBrowserHeaders`/`ReverseDNS`/`VerifyMD5` 等）保持在 transport 包作为 `*Client` 方法（因为它们操作 transport 内部字段），仅把被外部子包调用的方法首字母大写：`FetchText`/`FetchTextStr`/`FetchReader`/`DoHTTPRequest`。
 
-- [ ] **Step 3: 改造 stats 子包 — 五个 Fetcher 文件的方法转函数**
+- [x] **Step 3: 改造 stats 子包 — 五个 Fetcher 文件的方法转函数**
 
 ```go
 // 文件: internal/stats/fetcher.go（替换整个文件）
@@ -393,7 +393,7 @@ func ParseDelegatedFull(r io.Reader) (*models.DelegatedResult, error) {
 
 （`extended.go`/`assigned.go`/`ipv6_assigned.go`/`legacy.go` 同模式改造，函数签名统一为 `func FetchXxx(ctx, c *transport.Client, ...) (*models.XxxResult, error)`。）
 
-- [ ] **Step 4: 改造 query 子包 — 九个查询文件的方法转函数**
+- [x] **Step 4: 改造 query 子包 — 九个查询文件的方法转函数**
 
 ```go
 // 文件: internal/query/rdap.go（替换 RDAPLookupIP 及 doRDAPRequestAt 等方法）
@@ -431,7 +431,7 @@ func doRDAPRequestAt(ctx context.Context, c *transport.Client, path string, resu
 
 （`rex.go`/`whois.go`/`irr.go`/`rrdp.go`/`bgp.go`/`telemetry.go`/`transfers.go`/`changes.go` 同模式：`func XxxLookup(ctx, c *transport.Client, ...) (*models.Xxx, error)`，`whois.go` 的 `ParseWhoisResponse` 因不依赖 Client，保持包级函数。）
 
-- [ ] **Step 5: 改造 filter 与 history 子包**
+- [x] **Step 5: 改造 filter 与 history 子包**
 
 ```go
 // 文件: internal/filter/filter.go（替换 EntryFilter/ExtendedEntryFilter 及方法）
@@ -480,7 +480,7 @@ func FetchHistoricalDelegated(ctx context.Context, c *transport.Client, date str
 func ListAvailableYears() []int { /* 方法体不变 */ }
 ```
 
-- [ ] **Step 6: 改造 transport 子包内的 Client 字段访问器 — 为子包需要的字段提供导出方法**
+- [x] **Step 6: 改造 transport 子包内的 Client 字段访问器 — 为子包需要的字段提供导出方法**
 
 ```go
 // 文件: internal/transport/client.go（追加字段访问方法）
@@ -508,7 +508,7 @@ func (c *Client) RExBaseURL() string { return c.rexBaseURL }
 
 （字段名以 client.go 实际为准；Step 执行时按 Task 1 调研记录的实际字段名补全。）
 
-- [ ] **Step 7: 创建根 doc.go 与 reexport.go — 保持 import 路径与 apnic.Xxx API 完全不变**
+- [x] **Step 7: 创建根 doc.go 与 reexport.go — 保持 import 路径与 apnic.Xxx API 完全不变**
 
 ```go
 // 文件: doc.go
@@ -612,7 +612,7 @@ func WithWhoisTimeout(timeout time.Duration) Option   { return transport.WithWho
 
 **说明：** 因 `Option = transport.Option`（type alias），所有 `WithXxx` 直接 `return transport.WithXxx(opts...)` 即可。CLI 的 `apnic.WithChunkSize(1024)` 调用链不变。上述清单逐项对应 Task 1 Step 3 生成的 `.baseline-cli-symbols.txt`——执行时若该清单含本文件未列出的符号，按同模式补齐薄包装。
 
-- [ ] **Step 8: 验证全量编译 — go build 所有包 + go vet**
+- [x] **Step 8: 验证全量编译 — go build 所有包 + go vet**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -623,7 +623,7 @@ Expected:
   - Exit code: 0
   - Output does NOT contain: `undefined:` 或 `cannot use` 或 `not enough arguments`
 
-- [ ] **Step 9: 验证 cmd/apnic 编译 — CLI import 路径不变**
+- [x] **Step 9: 验证 cmd/apnic 编译 — CLI import 路径不变**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -635,7 +635,7 @@ Expected:
   - 无输出（编译成功）
   - `cmd/apnic/*.go` 文件未做任何 import 修改（仍为 `apnic "github.com/cyberspacesec/apnic-skills"`）
 
-- [ ] **Step 10: 提交**
+- [x] **Step 10: 提交**
 
 ```bash
 git add -A && git commit -m "refactor: split into internal subpackages + root reexport preserving apnic.* API"
@@ -650,7 +650,7 @@ git add -A && git commit -m "refactor: split into internal subpackages + root re
 - Modify: 各子包 `_test.go`（package 声明随被测文件已改，但测试体内对未导出符号/跨包符号的引用需修正）
 - Modify: `internal/transport/test_helpers_test.go`（原 `test_helpers_test.go`，被多子包测试依赖 → 决策：留在 transport，被依赖处改为调用导出的测试 helper 或各自复制所需 fixture）
 
-- [ ] **Step 1: 修复 transport 子包测试 — 多数测试访问 Client 未导出字段/方法，已随文件移入 transport，同包可见**
+- [x] **Step 1: 修复 transport 子包测试 — 多数测试访问 Client 未导出字段/方法，已随文件移入 transport，同包可见**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -685,7 +685,7 @@ func NewTestClient(ts *httptest.Server) *transport.Client {
 }
 ```
 
-- [ ] **Step 2: 修复 stats/query/filter/history 子包测试 — 把对原 Client 方法的调用改为函数调用**
+- [x] **Step 2: 修复 stats/query/filter/history 子包测试 — 把对原 Client 方法的调用改为函数调用**
 
 ```go
 // 改造前（stats_test.go 内）：
@@ -697,7 +697,7 @@ func NewTestClient(ts *httptest.Server) *transport.Client {
 
 对每个子包 `_test.go`，逐文件执行：把 `c.FetchXxx(ctx, ...)` 改为 `subpackage.FetchXxx(ctx, c, ...)`，把 `apnic.NewClient(...)` 改为 `transport.NewClient(...)`（测试在子包内，直接用 transport）或通过 testutil。
 
-- [ ] **Step 3: 修复 cli 子包测试 — cmd/apnic 内测试已用 apnic. 前缀，无需改（验证）**
+- [x] **Step 3: 修复 cli 子包测试 — cmd/apnic 内测试已用 apnic. 前缀，无需改（验证）**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -708,7 +708,7 @@ Expected:
   - Exit code: 0
   - Output contains: `ok` 行
 
-- [ ] **Step 4: 验证全量测试 — 与 Task 1 基线对比**
+- [x] **Step 4: 验证全量测试 — 与 Task 1 基线对比**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -721,7 +721,7 @@ Expected:
   - Output contains: `BASELINE MATCH`（测试结果与重组前一致）
   - 若子包拆分导致 ok 行数量增加（包变多），逐包确认全 ok 即可，diff 仅有包路径变化无 FAIL
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add -A && git commit -m "test: fix subpackage test wiring after restructure, baseline green"
@@ -737,7 +737,7 @@ git add -A && git commit -m "test: fix subpackage test wiring after restructure,
 - Modify: `README.md`、`README.zh-CN.md`（若有根 .go 路径引用）
 - Modify: `docs/superpowers/plans/*.md`（历史 plan，可选——仅修正指向当前已移动文件的引用）
 
-- [ ] **Step 1: 定位所有指向已移动 .go 文件的文档引用**
+- [x] **Step 1: 定位所有指向已移动 .go 文件的文档引用**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -774,7 +774,7 @@ EOF
 grep -rlE "\b(models|client|downloader|stealth|cache|dns|errors|utils|verify|fetcher|extended|assigned|ipv6_assigned|legacy|rdap|rex|whois|irr|rrdp|bgp|telemetry|transfers|changes|cidr|filter|history)\.go\b" website/docs README.md README.zh-CN.md 2>/dev/null
 ```
 
-- [ ] **Step 2: 用 sed 批量替换文档中的文件名引用为完整路径 — 逐文件执行**
+- [x] **Step 2: 用 sed 批量替换文档中的文件名引用为完整路径 — 逐文件执行**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -789,7 +789,7 @@ Expected:
   - Exit code: 0
   - `grep -rn "stealth.go" website/docs/architecture/anti-scraping.md` 输出含 `internal/transport/stealth.go`
 
-- [ ] **Step 3: 验证文档无残留裸文件名引用**
+- [x] **Step 3: 验证文档无残留裸文件名引用**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -800,7 +800,7 @@ Expected:
   - Exit code: 0
   - Output contains: `ALL REPLACED`
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add -A && git commit -m "docs: update website/readme file references to new internal/ subpackage paths"
@@ -815,7 +815,7 @@ git add -A && git commit -m "docs: update website/readme file references to new 
 - Run: 全量验证命令
 - Modify: `docs/superpowers/plans/2026-07-11-restructure-go-files.md`（本 plan，勾选完成）
 
-- [ ] **Step 1: 全量编译 + vet + 测试**
+- [x] **Step 1: 全量编译 + vet + 测试**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -827,7 +827,7 @@ Expected:
   - 每个包输出 `ok`
   - Output does NOT contain: `FAIL` 或 `panic`
 
-- [ ] **Step 2: 验证 CLI 二进制可构建且运行**
+- [x] **Step 2: 验证 CLI 二进制可构建且运行**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -838,7 +838,7 @@ Expected:
   - Exit code: 0
   - Output contains: `APNIC data & query toolkit`
 
-- [ ] **Step 3: 覆盖率基线对比 — 确认重组未改变覆盖率**
+- [x] **Step 3: 覆盖率基线对比 — 确认重组未改变覆盖率**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -851,7 +851,7 @@ Expected:
   - Exit code: 0
   - 总覆盖率百分比与重组前持平或更高（不应下降）
 
-- [ ] **Step 4: 验证根目录整洁 — 仅剩 doc.go / reexport.go + 非代码资产**
+- [x] **Step 4: 验证根目录整洁 — 仅剩 doc.go / reexport.go + 非代码资产**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -862,7 +862,7 @@ Expected:
   - Exit code: 0
   - 输出仅 `doc.go` 与 `reexport.go`（可选 `reexport_stats.go` 等按拆分）
 
-- [ ] **Step 5: 清理临时基线文件 + 提交收尾**
+- [x] **Step 5: 清理临时基线文件 + 提交收尾**
 
 ```bash
 cd /home/cc11001100/github/cyberspacesec/apnic-skills
@@ -870,6 +870,6 @@ git rm -f docs/superpowers/plans/.baseline-unexported-symbols.txt docs/superpowe
 git add -A && git commit -m "chore: finalize root .go restructure, remove temp baselines"
 ```
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 （已包含在 Step 5）
