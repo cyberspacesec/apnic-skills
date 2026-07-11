@@ -9,25 +9,14 @@ import (
 	"time"
 )
 
-// capturingHandler records the request headers of the last received request.
-func capturingHandler(t *testing.T, status int, body string) (*httptest.Server, *http.Header) {
-	t.Helper()
-	var captured http.Header
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		captured = r.Header.Clone()
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(status)
-		w.Write([]byte(body))
-	}))
-	return srv, &captured
-}
+// capturingHandler is re-exported from testutil in test_helpers_test.go.
 
 func TestApplyBrowserHeaders_StealthOn(t *testing.T) {
 	c := NewClient()
 	srv, hdr := capturingHandler(t, http.StatusOK, "ok")
 	defer srv.Close()
 	c.statsBaseURL = srv.URL + "/"
-	if _, err := c.fetchText(context.Background(), srv.URL+"/x"); err != nil {
+	if _, err := c.FetchText(context.Background(), srv.URL+"/x"); err != nil {
 		t.Fatal(err)
 	}
 	if got := hdr.Get("User-Agent"); !strings.Contains(got, "Mozilla") {
@@ -47,7 +36,7 @@ func TestApplyBrowserHeaders_StealthOff(t *testing.T) {
 	c := NewClient(WithStealth(false))
 	srv, hdr := capturingHandler(t, http.StatusOK, "ok")
 	defer srv.Close()
-	if _, err := c.fetchText(context.Background(), srv.URL+"/x"); err != nil {
+	if _, err := c.FetchText(context.Background(), srv.URL+"/x"); err != nil {
 		t.Fatal(err)
 	}
 	if got := hdr.Get("User-Agent"); got != "APNIC-Go-SDK/1.0 (security)" {
@@ -65,7 +54,7 @@ func TestWithBrowserUserAgent(t *testing.T) {
 	c := NewClient(WithBrowserUserAgent("MyBrowser/2.0"))
 	srv, hdr := capturingHandler(t, http.StatusOK, "ok")
 	defer srv.Close()
-	if _, err := c.fetchText(context.Background(), srv.URL+"/x"); err != nil {
+	if _, err := c.FetchText(context.Background(), srv.URL+"/x"); err != nil {
 		t.Fatal(err)
 	}
 	if got := hdr.Get("User-Agent"); got != "MyBrowser/2.0" {
@@ -78,7 +67,7 @@ func TestWithUserAgent_StealthOffBackwardCompat(t *testing.T) {
 	c := NewClient(WithStealth(false), WithUserAgent("legacy/1.0"))
 	srv, hdr := capturingHandler(t, http.StatusOK, "ok")
 	defer srv.Close()
-	if _, err := c.fetchText(context.Background(), srv.URL+"/x"); err != nil {
+	if _, err := c.FetchText(context.Background(), srv.URL+"/x"); err != nil {
 		t.Fatal(err)
 	}
 	if got := hdr.Get("User-Agent"); got != "legacy/1.0" {
@@ -91,7 +80,7 @@ func TestJitter_RangeAndDeterminism(t *testing.T) {
 	t.Setenv("APNIC_NO_JITTER", "")
 	c := NewClient(WithJitter(5*time.Millisecond, 10*time.Millisecond))
 	start := time.Now()
-	c.jitter(context.Background())
+	c.Jitter(context.Background())
 	elapsed := time.Since(start)
 	if elapsed < 5*time.Millisecond {
 		t.Errorf("jitter elapsed %v, want >= 5ms", elapsed)
@@ -105,7 +94,7 @@ func TestJitter_DisabledByZero(t *testing.T) {
 	t.Setenv("APNIC_NO_JITTER", "")
 	c := NewClient(WithJitter(0, 0))
 	start := time.Now()
-	c.jitter(context.Background())
+	c.Jitter(context.Background())
 	if d := time.Since(start); d > 5*time.Millisecond {
 		t.Errorf("zero jitter should be near-instant, took %v", d)
 	}
@@ -115,7 +104,7 @@ func TestJitter_StealthOff(t *testing.T) {
 	t.Setenv("APNIC_NO_JITTER", "")
 	c := NewClient(WithStealth(false), WithJitter(50*time.Millisecond, 100*time.Millisecond))
 	start := time.Now()
-	c.jitter(context.Background())
+	c.Jitter(context.Background())
 	if d := time.Since(start); d > 5*time.Millisecond {
 		t.Errorf("stealth-off jitter should be near-instant, took %v", d)
 	}
@@ -127,7 +116,7 @@ func TestJitter_ContextCancel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	c.jitter(ctx)
+	c.Jitter(ctx)
 	if d := time.Since(start); d > 200*time.Millisecond {
 		t.Errorf("cancelled jitter should return quickly, took %v", d)
 	}
@@ -137,7 +126,7 @@ func TestJitter_SwappedMinMax(t *testing.T) {
 	t.Setenv("APNIC_NO_JITTER", "")
 	// max < min should be silently swapped, not panic.
 	c := NewClient(WithJitter(10*time.Millisecond, 5*time.Millisecond))
-	c.jitter(context.Background())
+	c.Jitter(context.Background())
 	if c.jitterMin > c.jitterMax {
 		t.Errorf("swapped min/max not corrected: min=%v max=%v", c.jitterMin, c.jitterMax)
 	}
@@ -150,10 +139,10 @@ func TestRateLimit_Enforced(t *testing.T) {
 
 	start := time.Now()
 	// First call consumes the burst token immediately; second must wait ~0.5s.
-	if err := c.waitRateLimit(context.Background()); err != nil {
+	if err := c.WaitRateLimit(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.waitRateLimit(context.Background()); err != nil {
+	if err := c.WaitRateLimit(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	elapsed := time.Since(start)
@@ -165,7 +154,7 @@ func TestRateLimit_Enforced(t *testing.T) {
 func TestRateLimit_Disabled(t *testing.T) {
 	c := NewClient() // no rate limiter
 	start := time.Now()
-	if err := c.waitRateLimit(context.Background()); err != nil {
+	if err := c.WaitRateLimit(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if d := time.Since(start); d > 5*time.Millisecond {
@@ -179,8 +168,8 @@ func TestRateLimit_ContextCancel(t *testing.T) {
 	defer cancel()
 	// First wait consumes the burst token (returns nil immediately); the second
 	// must wait ~2.7h for the next token and should hit the ctx deadline.
-	_ = c.waitRateLimit(ctx)
-	if err := c.waitRateLimit(ctx); err == nil {
+	_ = c.WaitRateLimit(ctx)
+	if err := c.WaitRateLimit(ctx); err == nil {
 		t.Error("expected context-deadline error from rate limiter")
 	}
 }
@@ -214,7 +203,7 @@ func TestStealth_GzipNotDoubleDecompressed(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	out, err := c.fetchText(context.Background(), srv.URL+"/x")
+	out, err := c.FetchText(context.Background(), srv.URL+"/x")
 	if err != nil {
 		t.Fatalf("fetchText with gzip response failed: %v", err)
 	}
@@ -232,7 +221,7 @@ func TestDoHTTPRequest_ContextCancel(t *testing.T) {
 	defer srv.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
-	if _, err := c.doHTTPRequest(ctx, "GET", srv.URL, "text/plain"); err == nil {
+	if _, err := c.DoHTTPRequest(ctx, "GET", srv.URL, "text/plain"); err == nil {
 		t.Error("expected error on cancelled context")
 	}
 }
@@ -248,7 +237,7 @@ func TestDoHTTPRequest_RateLimitError(t *testing.T) {
 	defer srv.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel before the request so waitRateLimit fails immediately
-	if _, err := c.doHTTPRequest(ctx, "GET", srv.URL, "text/plain"); err == nil {
+	if _, err := c.DoHTTPRequest(ctx, "GET", srv.URL, "text/plain"); err == nil {
 		t.Error("expected waitRateLimit error from cancelled context")
 	}
 }

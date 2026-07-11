@@ -6,32 +6,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
-
-const sampleIRRDump = `# APNIC IRR dump (c) APNIC
-# Conditions of use...
-#
-
-inetnum:        1.1.1.0 - 1.1.1.255
-netname:        APNIC-LABS
-descr:          APNIC and Cloudflare DNS Resolver project
-descr:          second descr line
-country:        AU
-admin-c:        AIC3-AP
-tech-c:         AIC3-AP
-remarks:        leading remarks line
- + continuation folded without extra space
-mnt-by:         APNIC-HM
-last-modified:  2023-04-26T22:57:58Z
-source:         APNIC
-
-inetnum:        1.0.1.0 - 1.0.1.255
-netname:        CN-NET
-country:        CN
-mnt-by:         MAINT-CNNIC
-source:         APNIC
-`
 
 const sampleCurrentSerial = "16159398"
 
@@ -50,7 +28,7 @@ func TestIsIRRObjectType(t *testing.T) {
 }
 
 func TestParseIRRDatabase(t *testing.T) {
-	db, err := parseIRRDatabase("inetnum", sampleIRRDump)
+	db, err := parseIRRDatabase("inetnum", testutil.SampleIRRDump)
 	if err != nil {
 		t.Fatalf("parseIRRDatabase() error: %v", err)
 	}
@@ -137,8 +115,8 @@ func TestParseIRRDatabase_ScannerErr(t *testing.T) {
 }
 
 func TestFetchIRRDatabase_InvalidType(t *testing.T) {
-	client := NewClient()
-	_, err := client.FetchIRRDatabase(context.Background(), "bogus")
+	client := transport.NewClient()
+	_, err := FetchIRRDatabase(context.Background(), client, "bogus")
 	if err == nil {
 		t.Fatal("expected error for invalid IRR type")
 	}
@@ -151,12 +129,12 @@ func TestFetchIRRDatabase(t *testing.T) {
 			w.Write([]byte(sampleCurrentSerial))
 			return
 		}
-		serveDated(w, r, sampleIRRDump) // .gz-suffixed path served gzip-compressed
+		testutil.ServeDated(w, r, testutil.SampleIRRDump) // .gz-suffixed path served gzip-compressed
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithFTPBaseURL(srv.URL+"/"), WithJitter(0, 0))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithFTPBaseURL(srv.URL+"/"), transport.WithJitter(0, 0))
 
-	db, err := client.FetchIRRDatabase(context.Background(), "inetnum")
+	db, err := FetchIRRDatabase(context.Background(), client, "inetnum")
 	if err != nil {
 		t.Fatalf("FetchIRRDatabase() error: %v", err)
 	}
@@ -167,7 +145,7 @@ func TestFetchIRRDatabase(t *testing.T) {
 		t.Errorf("type = %q", db.Type)
 	}
 
-	serial, err := client.FetchIRRCurrentSerial(context.Background())
+	serial, err := FetchIRRCurrentSerial(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchIRRCurrentSerial() error: %v", err)
 	}
@@ -181,11 +159,11 @@ func TestFetchIRRDatabaseHTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithFTPBaseURL(srv.URL+"/"), WithJitter(0, 0))
-	if _, err := client.FetchIRRDatabase(context.Background(), "inetnum"); err == nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithFTPBaseURL(srv.URL+"/"), transport.WithJitter(0, 0))
+	if _, err := FetchIRRDatabase(context.Background(), client, "inetnum"); err == nil {
 		t.Error("expected error on HTTP 500")
 	}
-	if _, err := client.FetchIRRCurrentSerial(context.Background()); err == nil {
+	if _, err := FetchIRRCurrentSerial(context.Background(), client); err == nil {
 		t.Error("expected error on HTTP 500 for serial")
 	}
 }
@@ -195,62 +173,11 @@ func TestFetchIRRCurrentSerialBadData(t *testing.T) {
 		w.Write([]byte("not a number"))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithFTPBaseURL(srv.URL+"/"), WithJitter(0, 0))
-	if _, err := client.FetchIRRCurrentSerial(context.Background()); err == nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithFTPBaseURL(srv.URL+"/"), transport.WithJitter(0, 0))
+	if _, err := FetchIRRCurrentSerial(context.Background(), client); err == nil {
 		t.Error("expected error for non-numeric serial")
-	}
-}
-
-func TestGetIRRDatabaseWithCache(t *testing.T) {
-	client := NewClient(WithCacheTTL(1 * time.Hour))
-	// Manually seed cache to verify the Get path returns cached data.
-	db := &IRRDatabase{Type: "route", Objects: []IRRObject{{Type: "route", PrimaryKey: "1.0.0.0/24"}}}
-	client.cache.set(cacheKeyIRR("route"), db)
-
-	got, err := client.GetIRRDatabase(context.Background(), "route")
-	if err != nil {
-		t.Fatalf("GetIRRDatabase() error: %v", err)
-	}
-	if len(got.Objects) != 1 {
-		t.Errorf("objects = %d, want 1", len(got.Objects))
-	}
-}
-
-func TestGetIRRDatabaseFetchPath(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleIRRDump)
-	}))
-	defer srv.Close()
-	client := NewClient(
-		WithHTTPClient(srv.Client()),
-		WithFTPBaseURL(srv.URL+"/"),
-		WithCacheTTL(0), // force fetch path
-		WithJitter(0, 0),
-	)
-	got, err := client.GetIRRDatabase(context.Background(), "inetnum")
-	if err != nil {
-		t.Fatalf("GetIRRDatabase() error: %v", err)
-	}
-	if len(got.Objects) != 2 {
-		t.Errorf("objects = %d, want 2", len(got.Objects))
 	}
 }
 
 // TestGetIRRDatabaseFetchError covers the cache-miss + fetch-error branch of
 // GetIRRDatabase (the FetchIRRDatabase error propagates).
-func TestGetIRRDatabaseFetchError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}))
-	defer srv.Close()
-	client := NewClient(
-		WithHTTPClient(srv.Client()),
-		WithFTPBaseURL(srv.URL+"/"),
-		WithCacheTTL(0),
-		WithJitter(0, 0),
-		WithMaxConcurrentDownloads(0),
-	)
-	if _, err := client.GetIRRDatabase(context.Background(), "inetnum"); err == nil {
-		t.Error("expected error from GetIRRDatabase when fetch fails")
-	}
-}

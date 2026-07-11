@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -129,9 +130,9 @@ func TestFetchBGPSummary(t *testing.T) {
 		w.Write([]byte(sampleBGPRawTable))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	s, err := client.FetchBGPSummary(context.Background())
+	s, err := FetchBGPSummary(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchBGPSummary() error: %v", err)
 	}
@@ -145,9 +146,9 @@ func TestFetchBGPRawTable(t *testing.T) {
 		w.Write([]byte(sampleBGPRawTable))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	rt, err := client.FetchBGPRawTable(context.Background())
+	rt, err := FetchBGPRawTable(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchBGPRawTable() error: %v", err)
 	}
@@ -161,9 +162,9 @@ func TestFetchBGPASNMap(t *testing.T) {
 		w.Write([]byte(sampleBGPRawTable))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	m, err := client.FetchBGPASNMap(context.Background())
+	m, err := FetchBGPASNMap(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchBGPASNMap() error: %v", err)
 	}
@@ -186,11 +187,11 @@ func TestFetchBGPHTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
-	if _, err := client.FetchBGPSummary(context.Background()); err == nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
+	if _, err := FetchBGPSummary(context.Background(), client); err == nil {
 		t.Error("expected error on HTTP 500 for summary")
 	}
-	if _, err := client.FetchBGPRawTable(context.Background()); err == nil {
+	if _, err := FetchBGPRawTable(context.Background(), client); err == nil {
 		t.Error("expected error on HTTP 500 for raw table")
 	}
 }
@@ -237,9 +238,9 @@ func TestFetchBGPRawTable_ParseError(t *testing.T) {
 		w.Write([]byte(huge))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL),
-		WithJitter(0, 0), WithCacheTTL(0), WithMaxConcurrentDownloads(0))
-	if _, err := client.FetchBGPRawTable(context.Background()); err == nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL),
+		transport.WithJitter(0, 0), transport.WithCacheTTL(0), transport.WithMaxConcurrentDownloads(0))
+	if _, err := FetchBGPRawTable(context.Background(), client); err == nil {
 		t.Error("expected parse error from oversized line")
 	}
 }
@@ -251,9 +252,9 @@ func TestFetchBGPASNMap_RawTableError(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL),
-		WithJitter(0, 0), WithCacheTTL(0), WithMaxConcurrentDownloads(0))
-	if _, err := client.FetchBGPASNMap(context.Background()); err == nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL),
+		transport.WithJitter(0, 0), transport.WithCacheTTL(0), transport.WithMaxConcurrentDownloads(0))
+	if _, err := FetchBGPASNMap(context.Background(), client); err == nil {
 		t.Error("expected error from FetchBGPASNMap when raw table fails")
 	}
 }
@@ -512,8 +513,8 @@ func TestFetchBGPBadPrefixes(t *testing.T) {
 		w.Write([]byte(sampleBGPBadPrefixes))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
-	r, err := client.FetchBGPBadPrefixes(context.Background(), "")
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
+	r, err := FetchBGPBadPrefixes(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchBGPBadPrefixes() error: %v", err)
 	}
@@ -527,8 +528,8 @@ func TestFetchBGPPerPrefixLength(t *testing.T) {
 		w.Write([]byte(sampleBGPPerPrefixLength))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
-	r, err := client.FetchBGPPerPrefixLength(context.Background(), "au")
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
+	r, err := FetchBGPPerPrefixLength(context.Background(), client, "au")
 	if err != nil {
 		t.Fatalf("FetchBGPPerPrefixLength() error: %v", err)
 	}
@@ -548,8 +549,8 @@ func TestFetchBGP_SourceAU(t *testing.T) {
 		w.Write([]byte(sampleBGPPerPrefixLength))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
-	if _, err := client.FetchBGPPerPrefixLength(context.Background(), "au"); err != nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
+	if _, err := FetchBGPPerPrefixLength(context.Background(), client, "au"); err != nil {
 		t.Fatalf("FetchBGPPerPrefixLength() source=au error: %v", err)
 	}
 	if !strings.Contains(seenPath, "/au/data-pfx-nos") {
@@ -562,8 +563,8 @@ func TestFetchBGPUsedAutnums(t *testing.T) {
 		w.Write([]byte(sampleBGPUsedAutnums))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
-	r, err := client.FetchBGPUsedAutnums(context.Background(), "")
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
+	r, err := FetchBGPUsedAutnums(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchBGPUsedAutnums() error: %v", err)
 	}
@@ -577,8 +578,8 @@ func TestFetchBGPSparPrefixes(t *testing.T) {
 		w.Write([]byte(sampleBGPSparPrefixes))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
-	r, err := client.FetchBGPSparPrefixes(context.Background(), "hk")
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
+	r, err := FetchBGPSparPrefixes(context.Background(), client, "hk")
 	if err != nil {
 		t.Fatalf("FetchBGPSparPrefixes() error: %v", err)
 	}
@@ -592,8 +593,8 @@ func TestFetchBGPSinglePfx(t *testing.T) {
 		w.Write([]byte(sampleBGPSinglePfx))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
-	r, err := client.FetchBGPSinglePfx(context.Background(), "")
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
+	r, err := FetchBGPSinglePfx(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchBGPSinglePfx() error: %v", err)
 	}
@@ -607,26 +608,26 @@ func TestFetchBGPAdditionalFiles_HTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithJitter(0, 0))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithJitter(0, 0))
 	ctx := context.Background()
-	if _, err := client.FetchBGPBadPrefixes(ctx, ""); err == nil {
+	if _, err := FetchBGPBadPrefixes(ctx, client, ""); err == nil {
 		t.Error("expected error on 500 for badpfx")
 	}
-	if _, err := client.FetchBGPPerPrefixLength(ctx, ""); err == nil {
+	if _, err := FetchBGPPerPrefixLength(ctx, client, ""); err == nil {
 		t.Error("expected error on 500 for pfx-nos")
 	}
-	if _, err := client.FetchBGPUsedAutnums(ctx, ""); err == nil {
+	if _, err := FetchBGPUsedAutnums(ctx, client, ""); err == nil {
 		t.Error("expected error on 500 for used-autnums")
 	}
-	if _, err := client.FetchBGPSparPrefixes(ctx, ""); err == nil {
+	if _, err := FetchBGPSparPrefixes(ctx, client, ""); err == nil {
 		t.Error("expected error on 500 for spar")
 	}
-	if _, err := client.FetchBGPSinglePfx(ctx, ""); err == nil {
+	if _, err := FetchBGPSinglePfx(ctx, client, ""); err == nil {
 		t.Error("expected error on 500 for singlepfx")
 	}
 }
 
-// TestWithThymeSource exercises the WithThymeSource option by observing that a
+// TestWithThymeSource exercises the transport.WithThymeSource option by observing that a
 // per-call source overrides the client default and routes to /au/.
 func TestWithThymeSource(t *testing.T) {
 	var seenPath string
@@ -635,8 +636,8 @@ func TestWithThymeSource(t *testing.T) {
 		w.Write([]byte(sampleBGPSinglePfx))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithThymeBaseURL(srv.URL), WithThymeSource("au"), WithJitter(0, 0))
-	if _, err := client.FetchBGPSinglePfx(context.Background(), ""); err != nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithThymeBaseURL(srv.URL), transport.WithThymeSource("au"), transport.WithJitter(0, 0))
+	if _, err := FetchBGPSinglePfx(context.Background(), client, ""); err != nil {
 		t.Fatalf("FetchBGPSinglePfx() error: %v", err)
 	}
 	if !strings.Contains(seenPath, "/au/data-singlepfx") {
@@ -647,7 +648,7 @@ func TestWithThymeSource(t *testing.T) {
 // TestBuildThymeURL_EmptySource exercises the empty-source default branch in
 // buildThymeURL (source defaults to "current").
 func TestBuildThymeURL_EmptySource(t *testing.T) {
-	got := buildThymeURL("https://thyme.apnic.net/", "", "data-summary")
+	got := transport.BuildThymeURL("https://thyme.apnic.net/", "", "data-summary")
 	if got != "https://thyme.apnic.net/current/data-summary" {
 		t.Errorf("unexpected URL: %q", got)
 	}

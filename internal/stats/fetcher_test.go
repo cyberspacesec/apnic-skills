@@ -2,6 +2,8 @@ package stats
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,9 +12,9 @@ import (
 )
 
 func TestParseDelegatedFull(t *testing.T) {
-	result, err := parseDelegatedFull(strings.NewReader(sampleDelegatedData))
+	result, err := ParseDelegatedFull(strings.NewReader(testutil.SampleDelegatedData))
 	if err != nil {
-		t.Fatalf("parseDelegatedFull() error: %v", err)
+		t.Fatalf("ParseDelegatedFull() error: %v", err)
 	}
 	if result.Header.Version != "2" {
 		t.Errorf("header version = %q, want 2", result.Header.Version)
@@ -41,9 +43,9 @@ func TestParseDelegatedFull(t *testing.T) {
 }
 
 func TestParseDelegatedFullFromString(t *testing.T) {
-	result, err := parseDelegatedFullFromString(sampleDelegatedData)
+	result, err := ParseDelegatedFullFromString(testutil.SampleDelegatedData)
 	if err != nil {
-		t.Fatalf("parseDelegatedFullFromString() error: %v", err)
+		t.Fatalf("ParseDelegatedFullFromString() error: %v", err)
 	}
 	if len(result.Entries) == 0 {
 		t.Error("expected entries")
@@ -51,9 +53,9 @@ func TestParseDelegatedFullFromString(t *testing.T) {
 }
 
 func TestParseDelegatedData(t *testing.T) {
-	result, err := parseDelegatedData(strings.NewReader(sampleDelegatedData))
+	result, err := ParseDelegatedData(strings.NewReader(testutil.SampleDelegatedData))
 	if err != nil {
-		t.Fatalf("parseDelegatedData() error: %v", err)
+		t.Fatalf("ParseDelegatedData() error: %v", err)
 	}
 	if len(result) == 0 {
 		t.Error("expected entries")
@@ -71,9 +73,9 @@ apnic|AU|unknown|1.0.2.0|256|20110811|allocated
 short|line
 apnic|CN|ipv4|1.0.3.0|256|20110414|allocated
 `
-	result, err := parseDelegatedFull(strings.NewReader(data))
+	result, err := ParseDelegatedFull(strings.NewReader(data))
 	if err != nil {
-		t.Fatalf("parseDelegatedFull() error: %v", err)
+		t.Fatalf("ParseDelegatedFull() error: %v", err)
 	}
 	// Invalid count entry is skipped; unknown type entry is skipped;
 	// short line is skipped; only CN ipv4 remains
@@ -85,17 +87,17 @@ apnic|CN|ipv4|1.0.3.0|256|20110414|allocated
 func TestFetchDelegatedEntries(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleDelegatedData))
+		w.Write([]byte(testutil.SampleDelegatedData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	entries, err := client.FetchDelegatedEntries(context.Background())
+	entries, err := FetchDelegatedEntries(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchDelegatedEntries() error: %v", err)
 	}
@@ -106,17 +108,17 @@ func TestFetchDelegatedEntries(t *testing.T) {
 
 func TestFetchDelegatedEntriesByDate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleDelegatedData)
+		testutil.ServeDated(w, r, testutil.SampleDelegatedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	entries, err := client.FetchDelegatedEntriesByDate(context.Background(), "20260627")
+	entries, err := FetchDelegatedEntriesByDate(context.Background(), client, "20260627")
 	if err != nil {
 		t.Fatalf("FetchDelegatedEntriesByDate() error: %v", err)
 	}
@@ -128,17 +130,17 @@ func TestFetchDelegatedEntriesByDate(t *testing.T) {
 func TestFetchDelegatedResult(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleDelegatedData))
+		w.Write([]byte(testutil.SampleDelegatedData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchDelegatedResult(context.Background(), "")
+	result, err := FetchDelegatedResult(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchDelegatedResult() error: %v", err)
 	}
@@ -149,17 +151,17 @@ func TestFetchDelegatedResult(t *testing.T) {
 
 func TestFetchDelegatedResultByYear(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleDelegatedData)
+		testutil.ServeDated(w, r, testutil.SampleDelegatedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchDelegatedResultByYear(context.Background(), 2026)
+	result, err := FetchDelegatedResultByYear(context.Background(), client, 2026)
 	if err != nil {
 		t.Fatalf("FetchDelegatedResultByYear() error: %v", err)
 	}
@@ -174,13 +176,13 @@ func TestFetchDelegatedResultHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchDelegatedResult(context.Background(), "")
+	_, err := FetchDelegatedResult(context.Background(), client, "")
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}
@@ -189,69 +191,30 @@ func TestFetchDelegatedResultHTTPError(t *testing.T) {
 func TestFetchDelegatedCancelledContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleDelegatedData))
+		w.Write([]byte(testutil.SampleDelegatedData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := client.FetchDelegatedEntries(ctx)
+	_, err := FetchDelegatedEntries(ctx, client)
 	if err == nil {
 		t.Error("expected error for cancelled context")
 	}
 }
 
 func TestFetchTextInvalidURL(t *testing.T) {
-	client := NewClient(WithStatsBaseURL("http://[::1]:%invalid/"))
-	_, err := client.FetchDelegatedEntries(context.Background())
+	client := transport.NewClient(transport.WithStatsBaseURL("http://[::1]:%invalid/"))
+	_, err := FetchDelegatedEntries(context.Background(), client)
 	if err == nil {
 		t.Error("expected error for invalid URL")
-	}
-}
-
-func TestGetDelegatedEntriesWithCache(t *testing.T) {
-	client := NewClient(WithCacheTTL(1 * time.Hour))
-	entries := []DelegatedEntry{
-		{Country: "AU", Type: "ipv4", Start: "1.0.0.0", Value: 256},
-		{Country: "CN", Type: "ipv4", Start: "1.0.1.0", Value: 256},
-	}
-	client.cache.set(cacheKeyDelegated, entries)
-
-	result, err := client.GetDelegatedEntries(context.Background())
-	if err != nil {
-		t.Fatalf("GetDelegatedEntries() error: %v", err)
-	}
-	if len(result) != 2 {
-		t.Errorf("cached entries count = %d, want 2", len(result))
-	}
-}
-
-func TestGetDelegatedEntriesFetchPath(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleDelegatedData))
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond), // cache expires immediately
-	)
-
-	result, err := client.GetDelegatedEntries(context.Background())
-	if err != nil {
-		t.Fatalf("GetDelegatedEntries() error: %v", err)
-	}
-	if len(result) == 0 {
-		t.Error("expected entries from fetch path")
 	}
 }
 
@@ -261,13 +224,13 @@ func TestFetchDelegatedEntriesByDateHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchDelegatedEntriesByDate(context.Background(), "20260627")
+	_, err := FetchDelegatedEntriesByDate(context.Background(), client, "20260627")
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}
@@ -279,21 +242,21 @@ func TestFetchDelegatedResultByYearHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchDelegatedResultByYear(context.Background(), 2026)
+	_, err := FetchDelegatedResultByYear(context.Background(), client, 2026)
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}
 }
 
 func TestParseDelegatedDataError(t *testing.T) {
-	// parseDelegatedData wraps parseDelegatedFull; test with a reader that returns error
-	_, err := parseDelegatedData(errorReader{})
+	// ParseDelegatedData wraps ParseDelegatedFull; test with a reader that returns error
+	_, err := ParseDelegatedData(testutil.ErrorReader{})
 	if err == nil {
 		t.Error("expected error from error reader")
 	}
@@ -301,13 +264,13 @@ func TestParseDelegatedDataError(t *testing.T) {
 
 func TestFetchTextReadError(t *testing.T) {
 	// Use a custom RoundTripper that returns a body that errors on read
-	client := NewClient(
-		WithHTTPClient(&http.Client{Transport: errorRoundTripper{}}),
-		WithStatsBaseURL("http://example.com/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(&http.Client{Transport: testutil.ErrorRoundTripper{}}),
+		transport.WithStatsBaseURL("http://example.com/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchDelegatedEntries(context.Background())
+	_, err := FetchDelegatedEntries(context.Background(), client)
 	if err == nil {
 		t.Error("expected error for read failure")
 	}
@@ -321,13 +284,13 @@ func TestFetchTextGzipInitError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchDelegatedEntriesByDate(context.Background(), "20260627")
+	_, err := FetchDelegatedEntriesByDate(context.Background(), client, "20260627")
 	if err == nil {
 		t.Fatal("expected gzip init error")
 	}
@@ -340,40 +303,22 @@ func TestFetchTextContentEncodingGzip(t *testing.T) {
 	// A non-.gz URL that carries Content-Encoding: gzip should also be decompressed.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Encoding", "gzip")
-		w.Write(gzipBytes(sampleDelegatedData))
+		w.Write(testutil.GzipBytes(testutil.SampleDelegatedData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
 	// Latest fetch (no .gz suffix) but server returns gzip via Content-Encoding.
-	entries, err := client.FetchDelegatedEntries(context.Background())
+	entries, err := FetchDelegatedEntries(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchDelegatedEntries() error: %v", err)
 	}
 	if len(entries) == 0 {
 		t.Error("expected entries from Content-Encoding gzip response")
-	}
-}
-
-func TestGetDelegatedEntriesFetchError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	_, err := client.GetDelegatedEntries(context.Background())
-	if err == nil {
-		t.Error("expected error for fetch failure in GetDelegatedEntries")
 	}
 }

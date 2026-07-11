@@ -118,8 +118,8 @@ func IsHeaderLine(line string) bool {
 // type and date, using APNIC's naming convention:
 //   - latest:  {type}-apnic-latest   (e.g. delegated-apnic-latest)
 //   - dated:   delegated-apnic-{date}, delegated-apnic-extended-{date},
-//              delegated-apnic-ipv6-assigned-{date}, assigned-apnic-{date},
-//              legacy-apnic-{date}
+//     delegated-apnic-ipv6-assigned-{date}, assigned-apnic-{date},
+//     legacy-apnic-{date}
 func statsFileName(dataType, date string) string {
 	if date == "" {
 		if dataType == "delegated" || strings.HasPrefix(dataType, "delegated-") {

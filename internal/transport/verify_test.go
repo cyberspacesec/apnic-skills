@@ -266,9 +266,9 @@ func TestIsMD5Hex(t *testing.T) {
 		{"ad1b2eeeb7986f4f600a14ed4470b7ef", true},  // lowercase
 		{"AD1B2EEEB7986F4F600A14ED4470B7EF", true},  // uppercase
 		{"Ad1B2eeeb7986f4f600a14ed4470b7ef", true},  // mixed case
-		{"abc123", false},                            // too short
-		{"ad1b2eeeb7986f4f600a14ed4470b7eg", false},  // 32 chars but 'g' is not hex
-		{"z1b2eeeb7986f4f600a14ed4470b7ef", false},   // 32 chars but 'z' is not hex
+		{"abc123", false},                           // too short
+		{"ad1b2eeeb7986f4f600a14ed4470b7eg", false}, // 32 chars but 'g' is not hex
+		{"z1b2eeeb7986f4f600a14ed4470b7ef", false},  // 32 chars but 'z' is not hex
 		{"", false},
 	}
 	for _, tt := range tests {

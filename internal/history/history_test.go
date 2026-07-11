@@ -6,35 +6,38 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 func TestFetchHistoricalDelegatedInvalidDate(t *testing.T) {
-	client := NewClient()
-	_, err := client.FetchHistoricalDelegated(context.Background(), "invalid")
+	client := transport.NewClient()
+	_, err := FetchHistoricalDelegated(context.Background(), client, "invalid")
 	if err == nil {
 		t.Error("expected error for invalid date format")
 	}
 }
 
 func TestFetchHistoricalExtendedInvalidDate(t *testing.T) {
-	client := NewClient()
-	_, err := client.FetchHistoricalExtended(context.Background(), "2026")
+	client := transport.NewClient()
+	_, err := FetchHistoricalExtended(context.Background(), client, "2026")
 	if err == nil {
 		t.Error("expected error for invalid date format")
 	}
 }
 
 func TestFetchHistoricalAssignedInvalidDate(t *testing.T) {
-	client := NewClient()
-	_, err := client.FetchHistoricalAssigned(context.Background(), "abc")
+	client := transport.NewClient()
+	_, err := FetchHistoricalAssigned(context.Background(), client, "abc")
 	if err == nil {
 		t.Error("expected error for invalid date")
 	}
 }
 
 func TestFetchHistoricalLegacyInvalidDate(t *testing.T) {
-	client := NewClient()
-	_, err := client.FetchHistoricalLegacy(context.Background(), "xyz")
+	client := transport.NewClient()
+	_, err := FetchHistoricalLegacy(context.Background(), client, "xyz")
 	if err == nil {
 		t.Error("expected error for invalid date")
 	}
@@ -42,17 +45,17 @@ func TestFetchHistoricalLegacyInvalidDate(t *testing.T) {
 
 func TestFetchHistoricalDelegated(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleDelegatedData)
+		testutil.ServeDated(w, r, testutil.SampleDelegatedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchHistoricalDelegated(context.Background(), "20260627")
+	result, err := FetchHistoricalDelegated(context.Background(), client, "20260627")
 	if err != nil {
 		t.Fatalf("FetchHistoricalDelegated() error: %v", err)
 	}
@@ -63,17 +66,17 @@ func TestFetchHistoricalDelegated(t *testing.T) {
 
 func TestFetchHistoricalExtended(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleExtendedData)
+		testutil.ServeDated(w, r, testutil.SampleExtendedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchHistoricalExtended(context.Background(), "20260627")
+	result, err := FetchHistoricalExtended(context.Background(), client, "20260627")
 	if err != nil {
 		t.Fatalf("FetchHistoricalExtended() error: %v", err)
 	}
@@ -84,17 +87,17 @@ func TestFetchHistoricalExtended(t *testing.T) {
 
 func TestFetchHistoricalAssigned(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleAssignedData)
+		testutil.ServeDated(w, r, testutil.SampleAssignedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchHistoricalAssigned(context.Background(), "20260627")
+	result, err := FetchHistoricalAssigned(context.Background(), client, "20260627")
 	if err != nil {
 		t.Fatalf("FetchHistoricalAssigned() error: %v", err)
 	}
@@ -105,17 +108,17 @@ func TestFetchHistoricalAssigned(t *testing.T) {
 
 func TestFetchHistoricalLegacy(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleLegacyData)
+		testutil.ServeDated(w, r, testutil.SampleLegacyData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchHistoricalLegacy(context.Background(), "20260627")
+	result, err := FetchHistoricalLegacy(context.Background(), client, "20260627")
 	if err != nil {
 		t.Fatalf("FetchHistoricalLegacy() error: %v", err)
 	}
@@ -125,8 +128,8 @@ func TestFetchHistoricalLegacy(t *testing.T) {
 }
 
 func TestFetchDelegatedByYearInvalid(t *testing.T) {
-	client := NewClient()
-	_, err := client.FetchDelegatedByYear(context.Background(), 2000)
+	client := transport.NewClient()
+	_, err := FetchDelegatedByYear(context.Background(), client, 2000)
 	if err == nil {
 		t.Error("expected error for invalid year")
 	}
@@ -134,17 +137,17 @@ func TestFetchDelegatedByYearInvalid(t *testing.T) {
 
 func TestFetchDelegatedByYear(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleDelegatedData)
+		testutil.ServeDated(w, r, testutil.SampleDelegatedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchDelegatedByYear(context.Background(), 2026)
+	result, err := FetchDelegatedByYear(context.Background(), client, 2026)
 	if err != nil {
 		t.Fatalf("FetchDelegatedByYear() error: %v", err)
 	}
@@ -159,21 +162,21 @@ func TestFetchDelegatedByYearHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchDelegatedByYear(context.Background(), 2026)
+	_, err := FetchDelegatedByYear(context.Background(), client, 2026)
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}
 }
 
 func TestFetchExtendedByYearInvalid(t *testing.T) {
-	client := NewClient()
-	_, err := client.FetchExtendedByYear(context.Background(), 1999)
+	client := transport.NewClient()
+	_, err := FetchExtendedByYear(context.Background(), client, 1999)
 	if err == nil {
 		t.Error("expected error for invalid year")
 	}
@@ -181,17 +184,17 @@ func TestFetchExtendedByYearInvalid(t *testing.T) {
 
 func TestFetchExtendedByYear(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleExtendedData)
+		testutil.ServeDated(w, r, testutil.SampleExtendedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchExtendedByYear(context.Background(), 2026)
+	result, err := FetchExtendedByYear(context.Background(), client, 2026)
 	if err != nil {
 		t.Fatalf("FetchExtendedByYear() error: %v", err)
 	}
@@ -206,13 +209,13 @@ func TestFetchExtendedByYearHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchExtendedByYear(context.Background(), 2026)
+	_, err := FetchExtendedByYear(context.Background(), client, 2026)
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}

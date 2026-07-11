@@ -127,14 +127,14 @@ func slowRangeHandler(data []byte, delay time.Duration, inflight *int32) http.Ha
 
 func TestPlanChunks(t *testing.T) {
 	cases := []struct {
-		total    int64
-		cfg      downloadConfig
-		wantN    int
-		wantCov  bool // ranges should cover [0, total-1] with no gaps/overlaps
+		total   int64
+		cfg     downloadConfig
+		wantN   int
+		wantCov bool // ranges should cover [0, total-1] with no gaps/overlaps
 	}{
 		{4 * 1024 * 1024, downloadConfig{maxConcurrent: 4}, 4, true},
-		{100, downloadConfig{maxConcurrent: 4}, 4, true},     // more chunks than bytes -> clamped
-		{500, downloadConfig{maxConcurrent: 1}, 1, true},     // disabled -> 1 chunk
+		{100, downloadConfig{maxConcurrent: 4}, 4, true}, // more chunks than bytes -> clamped
+		{500, downloadConfig{maxConcurrent: 1}, 1, true}, // disabled -> 1 chunk
 		{1024, downloadConfig{maxConcurrent: 4, chunkSize: 256}, 4, true},
 		{1024, downloadConfig{maxConcurrent: 4, chunkSize: 100}, 11, true}, // 1024/100 -> 11
 		{0, downloadConfig{maxConcurrent: 4}, 0, false},
@@ -190,7 +190,7 @@ func TestFetchReader_ChunkedPlain(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/delegated-apnic-latest")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/delegated-apnic-latest")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestFetchReader_ChunkedGzip(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/delegated-apnic-20260101.gz")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/delegated-apnic-20260101.gz")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestFetchReader_FallbackNoRange(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/big")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/big")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestFetchReader_SmallFileSkipsChunking(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/tiny")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/tiny")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -272,7 +272,7 @@ func TestFetchReader_DisabledConcurrency(t *testing.T) {
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"),
 		WithJitter(0, 0), WithCacheTTL(0), WithMaxConcurrentDownloads(0))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/big")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/big")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestFetchReader_ChunkRetry(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/flaky")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/flaky")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -347,7 +347,7 @@ func TestFetchReader_DeadlineDegradedSplit(t *testing.T) {
 		WithMaxConcurrentDownloads(2), WithChunkSize(2*1024*1024),
 		WithDownloadTimeout(200*time.Millisecond))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/stall")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/stall")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -451,7 +451,7 @@ func TestFetchReader_ChunkPersistentlyFails(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/dead")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/dead")
 	// probeRange gets 206 (first Range:0-0 succeeds with 1 byte), so chunking
 	// is attempted; the full-range chunks then 500 and exhaust retries.
 	if err != nil {
@@ -490,7 +490,7 @@ func TestFetchReader_ContentEncodingGzipFallback(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0), WithStealth(false))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/transport-gz")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/transport-gz")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -511,7 +511,7 @@ func TestFetchReader_ContextCancel(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	r, err := c.fetchReader(ctx, srv.URL+"/slow")
+	r, err := c.FetchReader(ctx, srv.URL+"/slow")
 	if err == nil {
 		_, err = io.ReadAll(r)
 	}
@@ -530,7 +530,7 @@ func TestFetchReader_ConcurrentSpeedup(t *testing.T) {
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0))
 
 	start := time.Now()
-	r, err := c.fetchReader(context.Background(), srv.URL+"/big")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/big")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -574,7 +574,7 @@ func TestFetchTextStr(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0))
 
-	got, err := c.fetchTextStr(context.Background(), srv.URL+"/str")
+	got, err := c.FetchTextStr(context.Background(), srv.URL+"/str")
 	if err != nil {
 		t.Fatalf("fetchTextStr: %v", err)
 	}
@@ -602,7 +602,7 @@ func TestFetchReader_StealthHeadersOnChunks(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/stealth")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/stealth")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -634,7 +634,7 @@ func TestFetchReader_GzipInitErrorOnChunkReassembly(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"), WithJitter(0, 0), WithCacheTTL(0))
 
-	r, err := c.fetchReader(context.Background(), srv.URL+"/bad.gz")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/bad.gz")
 	if err != nil {
 		// Error may surface here.
 		return
@@ -655,7 +655,7 @@ func TestFetchTextStr_ReadError(t *testing.T) {
 		WithStatsBaseURL("http://x/"), WithJitter(0, 0), WithCacheTTL(0),
 		WithMaxConcurrentDownloads(0), // single-stream path
 	)
-	_, err := c.fetchTextStr(context.Background(), "http://x/y")
+	_, err := c.FetchTextStr(context.Background(), "http://x/y")
 	if err == nil {
 		t.Fatal("expected read error from errorRoundTripper")
 	}
@@ -672,7 +672,7 @@ func TestDownloadChunked_SingleRangeFallback(t *testing.T) {
 		WithJitter(0, 0), WithCacheTTL(0),
 		WithMaxConcurrentDownloads(4), WithChunkSize(1<<20))
 	c.downloadCfg.minSize = 1 // force entry into downloadChunked despite small size
-	r, err := c.fetchReader(context.Background(), srv.URL+"/y")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/y")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -707,7 +707,7 @@ func TestDownloadChunked_ChunkErrorThroughPipe(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"),
 		WithJitter(0, 0), WithCacheTTL(0))
-	r, err := c.fetchReader(context.Background(), srv.URL+"/p")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/p")
 	if err != nil {
 		return
 	}
@@ -725,7 +725,7 @@ func TestGzipClosingReader_Close(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"),
 		WithJitter(0, 0), WithCacheTTL(0), WithMaxConcurrentDownloads(0))
-	r, err := c.fetchReader(context.Background(), srv.URL+"/x.gz")
+	r, err := c.FetchReader(context.Background(), srv.URL+"/x.gz")
 	if err != nil {
 		t.Fatalf("fetchReader: %v", err)
 	}
@@ -745,11 +745,11 @@ func TestEffectiveConcurrency_Boundaries(t *testing.T) {
 	cases := []struct {
 		mc, chunks, want int
 	}{
-		{0, 5, 1},      // <1 -> 1
-		{32, 20, 16},   // >16 -> 16
-		{8, 3, 3},      // >chunks -> chunks
-		{4, 10, 4},     // normal
-		{32, 8, 8},     // >16 then >chunks -> chunks
+		{0, 5, 1},    // <1 -> 1
+		{32, 20, 16}, // >16 -> 16
+		{8, 3, 3},    // >chunks -> chunks
+		{4, 10, 4},   // normal
+		{32, 8, 8},   // >16 then >chunks -> chunks
 	}
 	for _, tc := range cases {
 		c := NewClient(WithMaxConcurrentDownloads(tc.mc))
@@ -850,7 +850,7 @@ func TestSingleStream_Errors(t *testing.T) {
 		WithHTTPClient(&http.Client{Transport: dialErrRoundTripper{}}),
 		WithStatsBaseURL("http://x/"), WithJitter(0, 0), WithCacheTTL(0),
 		WithMaxConcurrentDownloads(0))
-	_, err := c.fetchReader(context.Background(), "http://x/y")
+	_, err := c.FetchReader(context.Background(), "http://x/y")
 	if err == nil {
 		t.Error("expected dial error from singleStream")
 	}
@@ -860,7 +860,7 @@ func TestSingleStream_Errors(t *testing.T) {
 		WithHTTPClient(&http.Client{Transport: errorRoundTripper{}}),
 		WithStatsBaseURL("http://x/"), WithJitter(0, 0), WithCacheTTL(0),
 		WithMaxConcurrentDownloads(0))
-	r, err := c2.fetchReader(context.Background(), "http://x/y")
+	r, err := c2.FetchReader(context.Background(), "http://x/y")
 	if err != nil {
 		t.Fatalf("fetchReader should return reader (200), got %v", err)
 	}
@@ -875,19 +875,13 @@ func TestSingleStream_Errors(t *testing.T) {
 	defer srv.Close()
 	c3 := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"),
 		WithJitter(0, 0), WithCacheTTL(0), WithMaxConcurrentDownloads(0))
-	_, err = c3.fetchReader(context.Background(), srv.URL+"/x")
+	_, err = c3.FetchReader(context.Background(), srv.URL+"/x")
 	if err == nil {
 		t.Error("expected error from 404 single-stream")
 	}
 }
 
-// dialErrRoundTripper is an http.RoundTripper whose RoundTrip always returns an
-// error, exercising the request-error branches of singleStream and fetchChunkRaw.
-type dialErrRoundTripper struct{}
-
-func (dialErrRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	return nil, fmt.Errorf("dial: connection refused")
-}
+// dialErrRoundTripper is re-exported from testutil in test_helpers_test.go.
 
 // TestPlanChunks_EdgeBranches covers the n>64 branch and total<=0 nil path.
 func TestPlanChunks_EdgeBranches(t *testing.T) {
@@ -909,4 +903,3 @@ func TestPlanChunks_EdgeBranches(t *testing.T) {
 		t.Errorf("range = %d-%d, want 0-2", rs[0].start, rs[0].end)
 	}
 }
-

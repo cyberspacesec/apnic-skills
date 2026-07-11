@@ -2,6 +2,8 @@ package stats
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,9 +12,9 @@ import (
 )
 
 func TestParseLegacyFull(t *testing.T) {
-	result, err := parseLegacyFull(strings.NewReader(sampleLegacyData))
+	result, err := ParseLegacyFull(strings.NewReader(testutil.SampleLegacyData))
 	if err != nil {
-		t.Fatalf("parseLegacyFull() error: %v", err)
+		t.Fatalf("ParseLegacyFull() error: %v", err)
 	}
 	if result.Header.Version != "1" {
 		t.Errorf("header version = %q, want 1", result.Header.Version)
@@ -62,9 +64,9 @@ apnic||unknown|128.184.0.0|65536|20040401|allocated
 shortline
 apnic||ipv4|128.250.0.0|65536|20040401|allocated
 `
-	result, err := parseLegacyFull(strings.NewReader(data))
+	result, err := ParseLegacyFull(strings.NewReader(data))
 	if err != nil {
-		t.Fatalf("parseLegacyFull() error: %v", err)
+		t.Fatalf("ParseLegacyFull() error: %v", err)
 	}
 	if len(result.Entries) != 1 {
 		t.Errorf("entries = %d, want 1", len(result.Entries))
@@ -74,17 +76,17 @@ apnic||ipv4|128.250.0.0|65536|20040401|allocated
 func TestFetchLegacyEntries(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleLegacyData))
+		w.Write([]byte(testutil.SampleLegacyData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchLegacyEntries(context.Background())
+	result, err := FetchLegacyEntries(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchLegacyEntries() error: %v", err)
 	}
@@ -95,17 +97,17 @@ func TestFetchLegacyEntries(t *testing.T) {
 
 func TestFetchLegacyEntriesByDate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleLegacyData)
+		testutil.ServeDated(w, r, testutil.SampleLegacyData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchLegacyEntriesByDate(context.Background(), "20260627")
+	result, err := FetchLegacyEntriesByDate(context.Background(), client, "20260627")
 	if err != nil {
 		t.Fatalf("FetchLegacyEntriesByDate() error: %v", err)
 	}
@@ -117,17 +119,17 @@ func TestFetchLegacyEntriesByDate(t *testing.T) {
 func TestFetchLegacyResult(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleLegacyData))
+		w.Write([]byte(testutil.SampleLegacyData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchLegacyResult(context.Background(), "")
+	result, err := FetchLegacyResult(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchLegacyResult() error: %v", err)
 	}
@@ -142,70 +144,14 @@ func TestFetchLegacyResultHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchLegacyResult(context.Background(), "")
+	_, err := FetchLegacyResult(context.Background(), client, "")
 	if err == nil {
 		t.Error("expected error for HTTP 500")
-	}
-}
-
-func TestGetLegacyEntriesWithCache(t *testing.T) {
-	client := NewClient(WithCacheTTL(1 * time.Hour))
-	entries := []LegacyEntry{
-		{Start: "128.134.0.0", Value: 65536},
-	}
-	client.cache.set(cacheKeyLegacy, entries)
-
-	result, err := client.GetLegacyEntries(context.Background())
-	if err != nil {
-		t.Fatalf("GetLegacyEntries() error: %v", err)
-	}
-	if len(result) != 1 {
-		t.Errorf("cached entries count = %d, want 1", len(result))
-	}
-}
-
-func TestGetLegacyEntriesFetchPath(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleLegacyData))
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	result, err := client.GetLegacyEntries(context.Background())
-	if err != nil {
-		t.Fatalf("GetLegacyEntries() error: %v", err)
-	}
-	if len(result) == 0 {
-		t.Error("expected entries from fetch path")
-	}
-}
-
-func TestGetLegacyEntriesFetchError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	_, err := client.GetLegacyEntries(context.Background())
-	if err == nil {
-		t.Error("expected error for fetch failure in GetLegacyEntries")
 	}
 }

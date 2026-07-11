@@ -29,8 +29,8 @@ type Client struct {
 	rdapBaseURL  string
 	statsBaseURL string // base URL for stats/FTP data, defaults to "https://ftp.apnic.net/apnic/stats/apnic/"
 	cache        *cache
-	userAgent    string // used when stealth is disabled
-	dialWhois    dialFunc // optional override for whois dial, used in testing
+	userAgent    string    // used when stealth is disabled
+	dialWhois    dialFunc  // optional override for whois dial, used in testing
 	rdapDate     time.Time // optional point-in-time for RDAP historical queries (history_version_0); zero means live data
 
 	// Stealth / anti-scraping fields.
@@ -129,6 +129,21 @@ func WithWhoisServer(server string) Option {
 func WithWhoisTimeout(timeout time.Duration) Option {
 	return func(c *Client) {
 		c.whoisTimeout = timeout
+	}
+}
+
+// DialFunc is the exported signature for dialing a network connection. It is
+// an alias of the unexported dialFunc so callers (mainly tests in other
+// subpackages) can inject a custom whois dialer via WithDialWhois without
+// duplicating the type.
+type DialFunc = func(ctx context.Context, network, address string) (net.Conn, error)
+
+// WithDialWhois sets a custom dial function for whois connections. It is the
+// exported equivalent of the test-only withDialWhois helper, exposed so that
+// subpackage tests can exercise whois dial-error branches.
+func WithDialWhois(fn DialFunc) Option {
+	return func(c *Client) {
+		c.dialWhois = fn
 	}
 }
 
@@ -302,4 +317,3 @@ func (c *Client) WhoisTimeout() time.Duration { return c.whoisTimeout }
 
 // DialWhois returns the optional whois dial override (nil in production).
 func (c *Client) DialWhois() dialFunc { return c.dialWhois }
-

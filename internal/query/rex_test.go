@@ -8,6 +8,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 const sampleRExUserNetwork = `{"ip":"219.142.144.241","prefix":"219.142.128.0/18","asn":4847,"economy":"CN"}`
@@ -59,9 +62,9 @@ func TestFetchRExUserNetwork(t *testing.T) {
 		w.Write([]byte(sampleRExUserNetwork))
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL), WithJitter(0, 0))
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	res, err := c.FetchRExUserNetwork(context.Background())
+	res, err := FetchRExUserNetwork(context.Background(), c)
 	if err != nil {
 		t.Fatalf("FetchRExUserNetwork() error: %v", err)
 	}
@@ -91,9 +94,9 @@ func TestFetchRExResources(t *testing.T) {
 		w.Write([]byte(sampleRExResources))
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL), WithJitter(0, 0))
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	res, err := c.FetchRExResources(context.Background(), "asn")
+	res, err := FetchRExResources(context.Background(), c, "asn")
 	if err != nil {
 		t.Fatalf("FetchRExResources() error: %v", err)
 	}
@@ -128,9 +131,9 @@ func TestFetchRExResources_NoFilter(t *testing.T) {
 		w.Write([]byte(sampleRExResources))
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL), WithJitter(0, 0))
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	if _, err := c.FetchRExResources(context.Background(), ""); err != nil {
+	if _, err := FetchRExResources(context.Background(), c, ""); err != nil {
 		t.Fatalf("error: %v", err)
 	}
 }
@@ -150,9 +153,9 @@ func TestFetchRExHolder(t *testing.T) {
 		w.Write([]byte(sampleRExHolder))
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL), WithJitter(0, 0))
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	res, err := c.FetchRExHolder(context.Background(), "522be47e60b5c2ef81bbbab8deaa6b85", "arin")
+	res, err := FetchRExHolder(context.Background(), c, "522be47e60b5c2ef81bbbab8deaa6b85", "arin")
 	if err != nil {
 		t.Fatalf("FetchRExHolder() error: %v", err)
 	}
@@ -183,14 +186,14 @@ func TestFetchRExHolder(t *testing.T) {
 }
 
 func TestFetchRExHolder_MissingParams(t *testing.T) {
-	c := NewClient(WithJitter(0, 0))
-	_, err := c.FetchRExHolder(context.Background(), "", "arin")
-	if !errors.Is(err, ErrInvalidRExParam) {
-		t.Errorf("err = %v, want ErrInvalidRExParam", err)
+	c := transport.NewClient(transport.WithJitter(0, 0))
+	_, err := FetchRExHolder(context.Background(), c, "", "arin")
+	if !errors.Is(err, transport.ErrInvalidRExParam) {
+		t.Errorf("err = %v, want transport.ErrInvalidRExParam", err)
 	}
-	_, err = c.FetchRExHolder(context.Background(), "abc", "")
-	if !errors.Is(err, ErrInvalidRExParam) {
-		t.Errorf("err = %v, want ErrInvalidRExParam", err)
+	_, err = FetchRExHolder(context.Background(), c, "abc", "")
+	if !errors.Is(err, transport.ErrInvalidRExParam) {
+		t.Errorf("err = %v, want transport.ErrInvalidRExParam", err)
 	}
 }
 
@@ -204,9 +207,9 @@ func TestFetchRExHolder_ServerParamError(t *testing.T) {
 		w.Write([]byte("Either resource or opaque ID and RIR are required as query parameters."))
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL), WithJitter(0, 0))
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	_, err := c.FetchRExHolder(context.Background(), "abc", "arin")
+	_, err := FetchRExHolder(context.Background(), c, "abc", "arin")
 	if err == nil {
 		t.Fatal("expected error for server param error")
 	}
@@ -230,9 +233,9 @@ func TestFetchRExHoldersUniqueCount(t *testing.T) {
 		w.Write([]byte(sampleRExHoldersCount))
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL), WithJitter(0, 0))
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	res, err := c.FetchRExHoldersUniqueCount(context.Background())
+	res, err := FetchRExHoldersUniqueCount(context.Background(), c)
 	if err != nil {
 		t.Fatalf("FetchRExHoldersUniqueCount() error: %v", err)
 	}
@@ -246,18 +249,18 @@ func TestFetchRExHTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL), WithJitter(0, 0))
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	if _, err := c.FetchRExUserNetwork(context.Background()); err == nil {
+	if _, err := FetchRExUserNetwork(context.Background(), c); err == nil {
 		t.Error("expected error on HTTP 500 for user-network")
 	}
-	if _, err := c.FetchRExResources(context.Background(), ""); err == nil {
+	if _, err := FetchRExResources(context.Background(), c, ""); err == nil {
 		t.Error("expected error on HTTP 500 for resources")
 	}
-	if _, err := c.FetchRExHolder(context.Background(), "abc", "arin"); err == nil {
+	if _, err := FetchRExHolder(context.Background(), c, "abc", "arin"); err == nil {
 		t.Error("expected error on HTTP 500 for holder")
 	}
-	if _, err := c.FetchRExHoldersUniqueCount(context.Background()); err == nil {
+	if _, err := FetchRExHoldersUniqueCount(context.Background(), c); err == nil {
 		t.Error("expected error on HTTP 500 for unique-count")
 	}
 }
@@ -267,9 +270,9 @@ func TestFetchRExInvalidJSON(t *testing.T) {
 		w.Write([]byte("not json"))
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL), WithJitter(0, 0))
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	if _, err := c.FetchRExUserNetwork(context.Background()); err == nil {
+	if _, err := FetchRExUserNetwork(context.Background(), c); err == nil {
 		t.Error("expected error for invalid JSON")
 	}
 }
@@ -278,11 +281,11 @@ func TestFetchRExInvalidJSON(t *testing.T) {
 // unified doHTTPRequest exit and therefore carry browser-mimicry headers when
 // stealth is enabled (the anti-scraping guarantee for the new endpoint).
 func TestFetchREx_StealthHeadersInjected(t *testing.T) {
-	srv, hdr := capturingHandler(t, http.StatusOK, sampleRExUserNetwork)
+	srv, hdr := testutil.CapturingHandler(t, http.StatusOK, sampleRExUserNetwork)
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL), WithJitter(0, 0))
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	if _, err := c.FetchRExUserNetwork(context.Background()); err != nil {
+	if _, err := FetchRExUserNetwork(context.Background(), c); err != nil {
 		t.Fatal(err)
 	}
 	if got := hdr.Get("User-Agent"); !strings.Contains(got, "Mozilla") {
@@ -304,12 +307,12 @@ func TestFetchREx_GzipDecompressedOnce(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Encoding", "gzip")
-		w.Write(gzipBytes(sampleRExHoldersCount))
+		w.Write(testutil.GzipBytes(sampleRExHoldersCount))
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL), WithJitter(0, 0), WithStealth(true))
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL), transport.WithJitter(0, 0), transport.WithStealth(true))
 
-	res, err := c.FetchRExHoldersUniqueCount(context.Background())
+	res, err := FetchRExHoldersUniqueCount(context.Background(), c)
 	if err != nil {
 		t.Fatalf("gzip decode error: %v", err)
 	}
@@ -325,18 +328,18 @@ func TestIsRExAPIError(t *testing.T) {
 	if isRExAPIError(errors.New("transport: connection reset")) {
 		t.Error("plain transport error should not be a REx API error")
 	}
-	if !isRExAPIError(ErrInvalidRExParam) {
-		t.Error("ErrInvalidRExParam should be a REx API error")
+	if !isRExAPIError(transport.ErrInvalidRExParam) {
+		t.Error("transport.ErrInvalidRExParam should be a REx API error")
 	}
 }
 
 // TestFetchREx_RequestError covers fetchJSON's doHTTPRequest-error branch via
 // a transport that always fails.
 func TestFetchREx_RequestError(t *testing.T) {
-	c := NewClient(
-		WithHTTPClient(&http.Client{Transport: dialErrRoundTripper{}}),
-		WithRExBaseURL("http://x"), WithJitter(0, 0), WithCacheTTL(0))
-	if _, err := c.FetchRExUserNetwork(context.Background()); err == nil {
+	c := transport.NewClient(
+		transport.WithHTTPClient(&http.Client{Transport: testutil.DialErrRoundTripper{}}),
+		transport.WithRExBaseURL("http://x"), transport.WithJitter(0, 0), transport.WithCacheTTL(0))
+	if _, err := FetchRExUserNetwork(context.Background(), c); err == nil {
 		t.Error("expected request error for user-network")
 	}
 }
@@ -351,9 +354,9 @@ func TestFetchREx_GzipInitError(t *testing.T) {
 		w.Write([]byte("not-gzip"))
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRExBaseURL(srv.URL),
-		WithJitter(0, 0), WithCacheTTL(0))
-	if _, err := c.FetchRExUserNetwork(context.Background()); err == nil {
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRExBaseURL(srv.URL),
+		transport.WithJitter(0, 0), transport.WithCacheTTL(0))
+	if _, err := FetchRExUserNetwork(context.Background(), c); err == nil {
 		t.Error("expected gzip init error")
 	}
 }

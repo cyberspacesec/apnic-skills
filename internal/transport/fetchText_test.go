@@ -13,7 +13,7 @@ func TestFetchText_RequestError(t *testing.T) {
 		WithHTTPClient(&http.Client{Transport: dialErrRoundTripper{}}),
 		WithStatsBaseURL("http://x/"), WithJitter(0, 0), WithCacheTTL(0),
 		WithMaxConcurrentDownloads(0))
-	if _, err := c.fetchText(context.Background(), "http://x/y"); err == nil {
+	if _, err := c.FetchText(context.Background(), "http://x/y"); err == nil {
 		t.Error("expected request error")
 	}
 }
@@ -26,7 +26,7 @@ func TestFetchText_BadStatus(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"),
 		WithJitter(0, 0), WithCacheTTL(0), WithMaxConcurrentDownloads(0))
-	if _, err := c.fetchText(context.Background(), srv.URL+"/x"); err == nil {
+	if _, err := c.FetchText(context.Background(), srv.URL+"/x"); err == nil {
 		t.Error("expected bad-status error")
 	}
 }
@@ -42,7 +42,7 @@ func TestFetchText_GzipInitError(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"),
 		WithJitter(0, 0), WithCacheTTL(0), WithMaxConcurrentDownloads(0))
-	if _, err := c.fetchText(context.Background(), srv.URL+"/x.gz"); err == nil {
+	if _, err := c.FetchText(context.Background(), srv.URL+"/x.gz"); err == nil {
 		t.Error("expected gzip init error")
 	}
 }
@@ -54,7 +54,7 @@ func TestFetchText_ReadError(t *testing.T) {
 		WithHTTPClient(&http.Client{Transport: errorRoundTripper{}}),
 		WithStatsBaseURL("http://x/"), WithJitter(0, 0), WithCacheTTL(0),
 		WithMaxConcurrentDownloads(0))
-	if _, err := c.fetchText(context.Background(), "http://x/y"); err == nil {
+	if _, err := c.FetchText(context.Background(), "http://x/y"); err == nil {
 		t.Error("expected read error")
 	}
 }
@@ -71,7 +71,7 @@ func TestFetchText_GzipDecompress(t *testing.T) {
 	defer srv.Close()
 	c := NewClient(WithHTTPClient(srv.Client()), WithStatsBaseURL(srv.URL+"/"),
 		WithJitter(0, 0), WithCacheTTL(0), WithMaxConcurrentDownloads(0))
-	got, err := c.fetchText(context.Background(), srv.URL+"/x.gz")
+	got, err := c.FetchText(context.Background(), srv.URL+"/x.gz")
 	if err != nil {
 		t.Fatalf("fetchText: %v", err)
 	}

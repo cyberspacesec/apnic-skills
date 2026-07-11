@@ -2,6 +2,8 @@ package query
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,7 +11,7 @@ import (
 )
 
 func TestParseChangesData(t *testing.T) {
-	result, err := parseChangesData(sampleChangesData)
+	result, err := parseChangesData(testutil.SampleChangesData)
 	if err != nil {
 		t.Fatalf("parseChangesData() error: %v", err)
 	}
@@ -19,7 +21,7 @@ func TestParseChangesData(t *testing.T) {
 }
 
 func TestParseChangesMetadata(t *testing.T) {
-	result, err := parseChangesData(sampleChangesData)
+	result, err := parseChangesData(testutil.SampleChangesData)
 	if err != nil {
 		t.Fatalf("parseChangesData() error: %v", err)
 	}
@@ -35,7 +37,7 @@ func TestParseChangesMetadata(t *testing.T) {
 }
 
 func TestParseChangesRecords(t *testing.T) {
-	result, err := parseChangesData(sampleChangesData)
+	result, err := parseChangesData(testutil.SampleChangesData)
 	if err != nil {
 		t.Fatalf("parseChangesData() error: %v", err)
 	}
@@ -101,17 +103,17 @@ func TestParseChangesDataRFC3339Timestamp(t *testing.T) {
 func TestFetchChanges(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(sampleChangesData))
+		w.Write([]byte(testutil.SampleChangesData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchChanges(context.Background())
+	result, err := FetchChanges(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchChanges() error: %v", err)
 	}
@@ -123,17 +125,17 @@ func TestFetchChanges(t *testing.T) {
 func TestFetchChangesByDate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(sampleChangesData))
+		w.Write([]byte(testutil.SampleChangesData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchChangesByDate(context.Background(), "20260627")
+	result, err := FetchChangesByDate(context.Background(), client, "20260627")
 	if err != nil {
 		t.Fatalf("FetchChangesByDate() error: %v", err)
 	}
@@ -148,13 +150,13 @@ func TestFetchChangesHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchChanges(context.Background())
+	_, err := FetchChanges(context.Background(), client)
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}
@@ -166,71 +168,14 @@ func TestFetchChangesByDateHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchChangesByDate(context.Background(), "20260627")
+	_, err := FetchChangesByDate(context.Background(), client, "20260627")
 	if err == nil {
 		t.Error("expected error for HTTP 500")
-	}
-}
-
-func TestGetChangesWithCache(t *testing.T) {
-	client := NewClient(WithCacheTTL(1 * time.Hour))
-	data := &ChangesResult{
-		Metadata: ChangesMetadata{Count: 1},
-		Changes:  []ChangeRecord{{Country: "AU"}},
-	}
-	client.cache.set(cacheKeyChanges, data)
-
-	result, err := client.GetChanges(context.Background())
-	if err != nil {
-		t.Fatalf("GetChanges() error: %v", err)
-	}
-	if len(result.Changes) != 1 {
-		t.Errorf("changes count = %d, want 1", len(result.Changes))
-	}
-}
-
-func TestGetChangesFetchPath(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(sampleChangesData))
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	result, err := client.GetChanges(context.Background())
-	if err != nil {
-		t.Fatalf("GetChanges() error: %v", err)
-	}
-	if len(result.Changes) != 3 {
-		t.Errorf("changes count = %d, want 3", len(result.Changes))
-	}
-}
-
-func TestGetChangesFetchError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	_, err := client.GetChanges(context.Background())
-	if err == nil {
-		t.Error("expected error for fetch failure in GetChanges")
 	}
 }

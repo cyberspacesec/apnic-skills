@@ -2,6 +2,8 @@ package stats
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,9 +12,9 @@ import (
 )
 
 func TestParseAssignedFull(t *testing.T) {
-	result, err := parseAssignedFull(strings.NewReader(sampleAssignedData))
+	result, err := ParseAssignedFull(strings.NewReader(testutil.SampleAssignedData))
 	if err != nil {
-		t.Fatalf("parseAssignedFull() error: %v", err)
+		t.Fatalf("ParseAssignedFull() error: %v", err)
 	}
 	if result.Header.Version != "1" {
 		t.Errorf("header version = %q, want 1", result.Header.Version)
@@ -35,9 +37,9 @@ apnic|ae|ipv4||256||assigned||12
 shortline
 apnic|ae|ipv4||4||assigned||0
 `
-	result, err := parseAssignedFull(strings.NewReader(data))
+	result, err := ParseAssignedFull(strings.NewReader(data))
 	if err != nil {
-		t.Fatalf("parseAssignedFull() error: %v", err)
+		t.Fatalf("ParseAssignedFull() error: %v", err)
 	}
 	// Only ipv4 entries should be parsed (asn entries skipped)
 	// The entry with count 0 should still be included (parseIPv4Count returns error for 0, count stays 0)
@@ -49,17 +51,17 @@ apnic|ae|ipv4||4||assigned||0
 func TestFetchAssignedEntries(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleAssignedData))
+		w.Write([]byte(testutil.SampleAssignedData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchAssignedEntries(context.Background())
+	result, err := FetchAssignedEntries(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchAssignedEntries() error: %v", err)
 	}
@@ -70,17 +72,17 @@ func TestFetchAssignedEntries(t *testing.T) {
 
 func TestFetchAssignedEntriesByDate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleAssignedData)
+		testutil.ServeDated(w, r, testutil.SampleAssignedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchAssignedEntriesByDate(context.Background(), "20260627")
+	result, err := FetchAssignedEntriesByDate(context.Background(), client, "20260627")
 	if err != nil {
 		t.Fatalf("FetchAssignedEntriesByDate() error: %v", err)
 	}
@@ -92,17 +94,17 @@ func TestFetchAssignedEntriesByDate(t *testing.T) {
 func TestFetchAssignedResult(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleAssignedData))
+		w.Write([]byte(testutil.SampleAssignedData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchAssignedResult(context.Background(), "")
+	result, err := FetchAssignedResult(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchAssignedResult() error: %v", err)
 	}
@@ -117,70 +119,14 @@ func TestFetchAssignedResultHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchAssignedResult(context.Background(), "")
+	_, err := FetchAssignedResult(context.Background(), client, "")
 	if err == nil {
 		t.Error("expected error for HTTP 500")
-	}
-}
-
-func TestGetAssignedEntriesWithCache(t *testing.T) {
-	client := NewClient(WithCacheTTL(1 * time.Hour))
-	entries := []AssignedEntry{
-		{Country: "ae", Type: "ipv4", Prefix: "4", Count: 1},
-	}
-	client.cache.set(cacheKeyAssigned, entries)
-
-	result, err := client.GetAssignedEntries(context.Background())
-	if err != nil {
-		t.Fatalf("GetAssignedEntries() error: %v", err)
-	}
-	if len(result) != 1 {
-		t.Errorf("cached entries count = %d, want 1", len(result))
-	}
-}
-
-func TestGetAssignedEntriesFetchPath(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleAssignedData))
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	result, err := client.GetAssignedEntries(context.Background())
-	if err != nil {
-		t.Fatalf("GetAssignedEntries() error: %v", err)
-	}
-	if len(result) == 0 {
-		t.Error("expected entries from fetch path")
-	}
-}
-
-func TestGetAssignedEntriesFetchError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	_, err := client.GetAssignedEntries(context.Background())
-	if err == nil {
-		t.Error("expected error for fetch failure in GetAssignedEntries")
 	}
 }

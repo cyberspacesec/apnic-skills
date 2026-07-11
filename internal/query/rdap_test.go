@@ -2,6 +2,8 @@ package query
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,19 +15,19 @@ func TestRDAPLookupIP(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/ip/1.1.1.1" {
 			w.Header().Set("Content-Type", "application/rdap+json")
-			w.Write([]byte(sampleRDAPNetworkJSON))
+			w.Write([]byte(testutil.SampleRDAPNetworkJSON))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	network, err := client.RDAPLookupIP(context.Background(), "1.1.1.1")
+	network, err := RDAPLookupIP(context.Background(), client, "1.1.1.1")
 	if err != nil {
 		t.Fatalf("RDAPLookupIP() error: %v", err)
 	}
@@ -58,16 +60,16 @@ func TestRDAPLookupIP(t *testing.T) {
 func TestRDAPLookupCIDR(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rdap+json")
-		w.Write([]byte(sampleRDAPNetworkJSON))
+		w.Write([]byte(testutil.SampleRDAPNetworkJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	network, err := client.RDAPLookupCIDR(context.Background(), "1.1.1.0/24")
+	network, err := RDAPLookupCIDR(context.Background(), client, "1.1.1.0/24")
 	if err != nil {
 		t.Fatalf("RDAPLookupCIDR() error: %v", err)
 	}
@@ -79,16 +81,16 @@ func TestRDAPLookupCIDR(t *testing.T) {
 func TestRDAPLookupASN(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rdap+json")
-		w.Write([]byte(sampleRDAPAutnumJSON))
+		w.Write([]byte(testutil.SampleRDAPAutnumJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	autnum, err := client.RDAPLookupASN(context.Background(), 13335)
+	autnum, err := RDAPLookupASN(context.Background(), client, 13335)
 	if err != nil {
 		t.Fatalf("RDAPLookupASN() error: %v", err)
 	}
@@ -109,16 +111,16 @@ func TestRDAPLookupASN(t *testing.T) {
 func TestRDAPLookupDomain(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rdap+json")
-		w.Write([]byte(sampleRDAPDomainJSON))
+		w.Write([]byte(testutil.SampleRDAPDomainJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	domain, err := client.RDAPLookupDomain(context.Background(), "1.0.0.1.in-addr.arpa")
+	domain, err := RDAPLookupDomain(context.Background(), client, "1.0.0.1.in-addr.arpa")
 	if err != nil {
 		t.Fatalf("RDAPLookupDomain() error: %v", err)
 	}
@@ -133,16 +135,16 @@ func TestRDAPLookupDomain(t *testing.T) {
 func TestRDAPLookupEntity(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rdap+json")
-		w.Write([]byte(sampleRDAPEntityJSON))
+		w.Write([]byte(testutil.SampleRDAPEntityJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	entity, err := client.RDAPLookupEntity(context.Background(), "AIC3-AP")
+	entity, err := RDAPLookupEntity(context.Background(), client, "AIC3-AP")
 	if err != nil {
 		t.Fatalf("RDAPLookupEntity() error: %v", err)
 	}
@@ -166,16 +168,16 @@ func TestRDAPSearch(t *testing.T) {
 		if r.URL.Query().Get("fn") != "*CLOUD*" {
 			t.Errorf("expected fn=*CLOUD*, got %q", r.URL.Query().Get("fn"))
 		}
-		w.Write([]byte(sampleRDAPSearchJSON))
+		w.Write([]byte(testutil.SampleRDAPSearchJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	result, err := client.RDAPSearch(context.Background(), "*CLOUD*")
+	result, err := RDAPSearch(context.Background(), client, "*CLOUD*")
 	if err != nil {
 		t.Fatalf("RDAPSearch() error: %v", err)
 	}
@@ -199,17 +201,17 @@ func TestRDAPSearchEntities(t *testing.T) {
 			requestedField = "handle"
 			requestedValue = v
 		}
-		w.Write([]byte(sampleRDAPSearchJSON))
+		w.Write([]byte(testutil.SampleRDAPSearchJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
 	// fn search
-	result, err := client.RDAPSearchEntities(context.Background(), "fn", "*CLOUD*")
+	result, err := RDAPSearchEntities(context.Background(), client, "fn", "*CLOUD*")
 	if err != nil {
 		t.Fatalf("RDAPSearchEntities(fn) error: %v", err)
 	}
@@ -221,7 +223,7 @@ func TestRDAPSearchEntities(t *testing.T) {
 	}
 
 	// handle search
-	_, err = client.RDAPSearchEntities(context.Background(), "handle", "ORG-ARAD1-AP")
+	_, err = RDAPSearchEntities(context.Background(), client, "handle", "ORG-ARAD1-AP")
 	if err != nil {
 		t.Fatalf("RDAPSearchEntities(handle) error: %v", err)
 	}
@@ -231,16 +233,16 @@ func TestRDAPSearchEntities(t *testing.T) {
 }
 
 func TestRDAPSearchEntitiesInvalidField(t *testing.T) {
-	client := NewClient()
-	_, err := client.RDAPSearchEntities(context.Background(), "bogus", "x")
+	client := transport.NewClient()
+	_, err := RDAPSearchEntities(context.Background(), client, "bogus", "x")
 	if err == nil {
 		t.Error("expected error for unsupported search field")
 	}
 }
 
 func TestRDAPSearchEntitiesEmptyQuery(t *testing.T) {
-	client := NewClient()
-	_, err := client.RDAPSearchEntities(context.Background(), "fn", "")
+	client := transport.NewClient()
+	_, err := RDAPSearchEntities(context.Background(), client, "fn", "")
 	if err == nil {
 		t.Error("expected error for empty search query")
 	}
@@ -251,18 +253,18 @@ func TestRDAPLookupIPAt(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rdap+json")
 		capturedDate = r.URL.Query().Get("date")
-		w.Write([]byte(sampleRDAPNetworkJSON))
+		w.Write([]byte(testutil.SampleRDAPNetworkJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
 	// Point-in-time query should attach a date parameter.
 	date := time.Date(2020, 6, 1, 0, 0, 0, 0, time.UTC)
-	_, err := client.RDAPLookupIPAt(context.Background(), "1.1.1.1", date)
+	_, err := RDAPLookupIPAt(context.Background(), client, "1.1.1.1", date)
 	if err != nil {
 		t.Fatalf("RDAPLookupIPAt() error: %v", err)
 	}
@@ -276,17 +278,17 @@ func TestRDAPLookupIPAtZeroDateIsLive(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rdap+json")
 		capturedDate = r.URL.Query().Get("date")
-		w.Write([]byte(sampleRDAPNetworkJSON))
+		w.Write([]byte(testutil.SampleRDAPNetworkJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
 	// A zero date with no client default should produce a live query (no date param).
-	_, err := client.RDAPLookupIPAt(context.Background(), "1.1.1.1", time.Time{})
+	_, err := RDAPLookupIPAt(context.Background(), client, "1.1.1.1", time.Time{})
 	if err != nil {
 		t.Fatalf("RDAPLookupIPAt() error: %v", err)
 	}
@@ -300,19 +302,19 @@ func TestWithRDAPDateClientDefault(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rdap+json")
 		capturedDate = r.URL.Query().Get("date")
-		w.Write([]byte(sampleRDAPNetworkJSON))
+		w.Write([]byte(testutil.SampleRDAPNetworkJSON))
 	}))
 	defer server.Close()
 
 	// Client-level default date applies to all lookups.
 	defaultDate := time.Date(2019, 1, 15, 12, 30, 0, 0, time.UTC)
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
-		WithRDAPDate(defaultDate),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
+		transport.WithRDAPDate(defaultDate),
 	)
 
-	_, err := client.RDAPLookupIP(context.Background(), "1.1.1.1")
+	_, err := RDAPLookupIP(context.Background(), client, "1.1.1.1")
 	if err != nil {
 		t.Fatalf("RDAPLookupIP() error: %v", err)
 	}
@@ -323,7 +325,7 @@ func TestWithRDAPDateClientDefault(t *testing.T) {
 	// A per-call date overrides the client default.
 	capturedDate = ""
 	override := time.Date(2021, 3, 4, 5, 6, 7, 0, time.UTC)
-	_, err = client.RDAPLookupASNAt(context.Background(), 13335, override)
+	_, err = RDAPLookupASNAt(context.Background(), client, 13335, override)
 	if err != nil {
 		t.Fatalf("RDAPLookupASNAt() error: %v", err)
 	}
@@ -336,17 +338,17 @@ func TestRDAPLookupAtVariants(t *testing.T) {
 	// All *At variants exercise the point-in-time path; verify they return data.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rdap+json")
-		w.Write([]byte(sampleRDAPNetworkJSON))
+		w.Write([]byte(testutil.SampleRDAPNetworkJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 	date := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	if _, err := client.RDAPLookupCIDRAt(context.Background(), "1.1.1.0/24", date); err != nil {
+	if _, err := RDAPLookupCIDRAt(context.Background(), client, "1.1.1.0/24", date); err != nil {
 		t.Errorf("RDAPLookupCIDRAt() error: %v", err)
 	}
 }
@@ -355,16 +357,16 @@ func TestRDAPNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rdap+json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(sampleRDAPNotFoundJSON))
+		w.Write([]byte(testutil.SampleRDAPNotFoundJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPLookupIP(context.Background(), "0.0.0.0")
+	_, err := RDAPLookupIP(context.Background(), client, "0.0.0.0")
 	if err == nil {
 		t.Error("expected error for not found")
 	}
@@ -378,12 +380,12 @@ func TestRDAPNotFoundNoJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPLookupIP(context.Background(), "0.0.0.0")
+	_, err := RDAPLookupIP(context.Background(), client, "0.0.0.0")
 	if err == nil {
 		t.Error("expected error for not found")
 	}
@@ -395,12 +397,12 @@ func TestRDAPServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPLookupIP(context.Background(), "1.1.1.1")
+	_, err := RDAPLookupIP(context.Background(), client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for server error")
 	}
@@ -415,12 +417,12 @@ func TestRDAPServerErrorWithJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPLookupIP(context.Background(), "1.1.1.1")
+	_, err := RDAPLookupIP(context.Background(), client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for forbidden")
 	}
@@ -434,12 +436,12 @@ func TestRDAPServerErrorWithoutJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPLookupIP(context.Background(), "1.1.1.1")
+	_, err := RDAPLookupIP(context.Background(), client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for bad gateway")
 	}
@@ -452,12 +454,12 @@ func TestRDAPInvalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPLookupIP(context.Background(), "1.1.1.1")
+	_, err := RDAPLookupIP(context.Background(), client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for invalid JSON")
 	}
@@ -466,19 +468,19 @@ func TestRDAPInvalidJSON(t *testing.T) {
 func TestRDAPCancelledContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rdap+json")
-		w.Write([]byte(sampleRDAPNetworkJSON))
+		w.Write([]byte(testutil.SampleRDAPNetworkJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := client.RDAPLookupIP(ctx, "1.1.1.1")
+	_, err := RDAPLookupIP(ctx, client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for cancelled context")
 	}
@@ -487,16 +489,16 @@ func TestRDAPCancelledContext(t *testing.T) {
 func TestRDAPLookupCIDRError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(sampleRDAPNotFoundJSON))
+		w.Write([]byte(testutil.SampleRDAPNotFoundJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPLookupCIDR(context.Background(), "0.0.0.0/0")
+	_, err := RDAPLookupCIDR(context.Background(), client, "0.0.0.0/0")
 	if err == nil {
 		t.Error("expected error for not found")
 	}
@@ -505,16 +507,16 @@ func TestRDAPLookupCIDRError(t *testing.T) {
 func TestRDAPLookupASNError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(sampleRDAPNotFoundJSON))
+		w.Write([]byte(testutil.SampleRDAPNotFoundJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPLookupASN(context.Background(), 0)
+	_, err := RDAPLookupASN(context.Background(), client, 0)
 	if err == nil {
 		t.Error("expected error for not found")
 	}
@@ -523,16 +525,16 @@ func TestRDAPLookupASNError(t *testing.T) {
 func TestRDAPLookupDomainError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(sampleRDAPNotFoundJSON))
+		w.Write([]byte(testutil.SampleRDAPNotFoundJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPLookupDomain(context.Background(), "nonexistent.arpa")
+	_, err := RDAPLookupDomain(context.Background(), client, "nonexistent.arpa")
 	if err == nil {
 		t.Error("expected error for not found")
 	}
@@ -541,16 +543,16 @@ func TestRDAPLookupDomainError(t *testing.T) {
 func TestRDAPLookupEntityError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(sampleRDAPNotFoundJSON))
+		w.Write([]byte(testutil.SampleRDAPNotFoundJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPLookupEntity(context.Background(), "NONEXISTENT")
+	_, err := RDAPLookupEntity(context.Background(), client, "NONEXISTENT")
 	if err == nil {
 		t.Error("expected error for not found")
 	}
@@ -559,27 +561,27 @@ func TestRDAPLookupEntityError(t *testing.T) {
 func TestRDAPSearchError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(sampleRDAPNotFoundJSON))
+		w.Write([]byte(testutil.SampleRDAPNotFoundJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithRDAPBaseURL(server.URL),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithRDAPBaseURL(server.URL),
 	)
 
-	_, err := client.RDAPSearch(context.Background(), "nonexistent")
+	_, err := RDAPSearch(context.Background(), client, "nonexistent")
 	if err == nil {
 		t.Error("expected error for not found")
 	}
 }
 
 func TestRDAPRequestCreationError(t *testing.T) {
-	client := NewClient(
-		WithRDAPBaseURL("http://[::1]:%invalid/"),
+	client := transport.NewClient(
+		transport.WithRDAPBaseURL("http://[::1]:%invalid/"),
 	)
 
-	_, err := client.RDAPLookupIP(context.Background(), "1.1.1.1")
+	_, err := RDAPLookupIP(context.Background(), client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for invalid URL")
 	}
@@ -587,12 +589,12 @@ func TestRDAPRequestCreationError(t *testing.T) {
 
 func TestRDAPReadError(t *testing.T) {
 	// Use a custom RoundTripper that returns a body that errors on read
-	client := NewClient(
-		WithHTTPClient(&http.Client{Transport: errorRoundTripper{}}),
-		WithRDAPBaseURL("http://example.com"),
+	client := transport.NewClient(
+		transport.WithHTTPClient(&http.Client{Transport: testutil.ErrorRoundTripper{}}),
+		transport.WithRDAPBaseURL("http://example.com"),
 	)
 
-	_, err := client.RDAPLookupIP(context.Background(), "1.1.1.1")
+	_, err := RDAPLookupIP(context.Background(), client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for read failure")
 	}
@@ -601,7 +603,7 @@ func TestRDAPReadError(t *testing.T) {
 func TestRDAPHelp(t *testing.T) {
 	client, server := newTestClient(combinedHandler())
 	defer server.Close()
-	h, err := client.RDAPHelp(context.Background())
+	h, err := RDAPHelp(context.Background(), client)
 	if err != nil {
 		t.Fatalf("RDAPHelp() error: %v", err)
 	}
@@ -632,7 +634,7 @@ func TestRDAPHelp_NotFound(t *testing.T) {
 		w.Write([]byte(`{"errorCode":404,"title":"Not Found"}`))
 	})
 	defer server.Close()
-	if _, err := client.RDAPHelp(context.Background()); err == nil {
+	if _, err := RDAPHelp(context.Background(), client); err == nil {
 		t.Error("expected error for /help 404")
 	}
 }
@@ -640,7 +642,7 @@ func TestRDAPHelp_NotFound(t *testing.T) {
 func TestRDAPSearchDomains(t *testing.T) {
 	client, server := newTestClient(combinedHandler())
 	defer server.Close()
-	r, err := client.RDAPSearchDomains(context.Background(), "1.in-addr.arpa")
+	r, err := RDAPSearchDomains(context.Background(), client, "1.in-addr.arpa")
 	if err != nil {
 		t.Fatalf("RDAPSearchDomains() error: %v", err)
 	}
@@ -655,7 +657,7 @@ func TestRDAPSearchDomains(t *testing.T) {
 func TestRDAPSearchDomains_EmptyQuery(t *testing.T) {
 	client, server := newTestClient(combinedHandler())
 	defer server.Close()
-	if _, err := client.RDAPSearchDomains(context.Background(), ""); err == nil {
+	if _, err := RDAPSearchDomains(context.Background(), client, ""); err == nil {
 		t.Error("expected error for empty domain search query")
 	}
 }
@@ -666,8 +668,8 @@ func TestRDAPSearchDomains_HTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	client := NewClient(WithRDAPBaseURL(srv.URL), WithJitter(0, 0), WithCacheTTL(0))
-	if _, err := client.RDAPSearchDomains(context.Background(), "1.in-addr.arpa"); err == nil {
+	client := transport.NewClient(transport.WithRDAPBaseURL(srv.URL), transport.WithJitter(0, 0), transport.WithCacheTTL(0))
+	if _, err := RDAPSearchDomains(context.Background(), client, "1.in-addr.arpa"); err == nil {
 		t.Error("expected error on HTTP 500 for domain search")
 	}
 }

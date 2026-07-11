@@ -2,6 +2,8 @@ package stats
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,9 +12,9 @@ import (
 )
 
 func TestParseExtendedFull(t *testing.T) {
-	result, err := parseExtendedFull(strings.NewReader(sampleExtendedData))
+	result, err := ParseExtendedFull(strings.NewReader(testutil.SampleExtendedData))
 	if err != nil {
-		t.Fatalf("parseExtendedFull() error: %v", err)
+		t.Fatalf("ParseExtendedFull() error: %v", err)
 	}
 	if result.Header.Version != "2.3" {
 		t.Errorf("header version = %q, want 2.3", result.Header.Version)
@@ -44,9 +46,9 @@ func TestParseExtendedFull(t *testing.T) {
 }
 
 func TestParseExtendedFullFromString(t *testing.T) {
-	result, err := parseExtendedFullFromString(sampleExtendedData)
+	result, err := ParseExtendedFullFromString(testutil.SampleExtendedData)
 	if err != nil {
-		t.Fatalf("parseExtendedFullFromString() error: %v", err)
+		t.Fatalf("ParseExtendedFullFromString() error: %v", err)
 	}
 	if len(result.Entries) == 0 {
 		t.Error("expected entries")
@@ -64,9 +66,9 @@ apnic|AU|unknown|1.0.1.0|256|20110811|allocated|A92E1062
 shortline
 apnic|CN|ipv4|1.0.2.0|256|20110414|allocated|A92E1062
 `
-	result, err := parseExtendedFull(strings.NewReader(data))
+	result, err := ParseExtendedFull(strings.NewReader(data))
 	if err != nil {
-		t.Fatalf("parseExtendedFull() error: %v", err)
+		t.Fatalf("ParseExtendedFull() error: %v", err)
 	}
 	// Only CN ipv4 should be valid
 	if len(result.Entries) != 1 {
@@ -77,17 +79,17 @@ apnic|CN|ipv4|1.0.2.0|256|20110414|allocated|A92E1062
 func TestFetchExtendedEntries(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleExtendedData))
+		w.Write([]byte(testutil.SampleExtendedData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchExtendedEntries(context.Background())
+	result, err := FetchExtendedEntries(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchExtendedEntries() error: %v", err)
 	}
@@ -98,17 +100,17 @@ func TestFetchExtendedEntries(t *testing.T) {
 
 func TestFetchExtendedEntriesByDate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleExtendedData)
+		testutil.ServeDated(w, r, testutil.SampleExtendedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchExtendedEntriesByDate(context.Background(), "20260627")
+	result, err := FetchExtendedEntriesByDate(context.Background(), client, "20260627")
 	if err != nil {
 		t.Fatalf("FetchExtendedEntriesByDate() error: %v", err)
 	}
@@ -120,17 +122,17 @@ func TestFetchExtendedEntriesByDate(t *testing.T) {
 func TestFetchExtendedResult(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleExtendedData))
+		w.Write([]byte(testutil.SampleExtendedData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchExtendedResult(context.Background(), "")
+	result, err := FetchExtendedResult(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchExtendedResult() error: %v", err)
 	}
@@ -141,17 +143,17 @@ func TestFetchExtendedResult(t *testing.T) {
 
 func TestFetchExtendedResultByYear(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serveDated(w, r, sampleExtendedData)
+		testutil.ServeDated(w, r, testutil.SampleExtendedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchExtendedResultByYear(context.Background(), 2026)
+	result, err := FetchExtendedResultByYear(context.Background(), client, 2026)
 	if err != nil {
 		t.Fatalf("FetchExtendedResultByYear() error: %v", err)
 	}
@@ -166,13 +168,13 @@ func TestFetchExtendedResultHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchExtendedResult(context.Background(), "")
+	_, err := FetchExtendedResult(context.Background(), client, "")
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}
@@ -184,70 +186,14 @@ func TestFetchExtendedResultByYearHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchExtendedResultByYear(context.Background(), 2026)
+	_, err := FetchExtendedResultByYear(context.Background(), client, 2026)
 	if err == nil {
 		t.Error("expected error for HTTP 500")
-	}
-}
-
-func TestGetExtendedEntriesWithCache(t *testing.T) {
-	client := NewClient(WithCacheTTL(1 * time.Hour))
-	entries := []DelegatedExtendedEntry{
-		{OpaqueID: "A1", Country: "AU"},
-	}
-	client.cache.set(cacheKeyExtended, entries)
-
-	result, err := client.GetExtendedEntries(context.Background())
-	if err != nil {
-		t.Fatalf("GetExtendedEntries() error: %v", err)
-	}
-	if len(result) != 1 {
-		t.Errorf("cached entries count = %d, want 1", len(result))
-	}
-}
-
-func TestGetExtendedEntriesFetchPath(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleExtendedData))
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	result, err := client.GetExtendedEntries(context.Background())
-	if err != nil {
-		t.Fatalf("GetExtendedEntries() error: %v", err)
-	}
-	if len(result) == 0 {
-		t.Error("expected entries from fetch path")
-	}
-}
-
-func TestGetExtendedEntriesFetchError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	_, err := client.GetExtendedEntries(context.Background())
-	if err == nil {
-		t.Error("expected error for fetch failure in GetExtendedEntries")
 	}
 }

@@ -3,10 +3,12 @@ package filter
 import (
 	"testing"
 	"time"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
 )
 
 func TestNewFilter(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Country: "CN", Type: "ipv4", Status: "allocated"},
 		{Country: "AU", Type: "ipv4", Status: "assigned"},
 		{Country: "JP", Type: "ipv6", Status: "allocated"},
@@ -19,7 +21,7 @@ func TestNewFilter(t *testing.T) {
 }
 
 func TestEntryFilterByCountry(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Country: "CN"},
 		{Country: "AU"},
 		{Country: "CN"},
@@ -32,7 +34,7 @@ func TestEntryFilterByCountry(t *testing.T) {
 }
 
 func TestEntryFilterByType(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Type: "ipv4"},
 		{Type: "ipv6"},
 		{Type: "ipv4"},
@@ -45,7 +47,7 @@ func TestEntryFilterByType(t *testing.T) {
 }
 
 func TestEntryFilterByStatus(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Status: "allocated"},
 		{Status: "assigned"},
 		{Status: "allocated"},
@@ -58,7 +60,7 @@ func TestEntryFilterByStatus(t *testing.T) {
 }
 
 func TestEntryFilterByDateRange(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)},
@@ -75,7 +77,7 @@ func TestEntryFilterByDateRange(t *testing.T) {
 }
 
 func TestEntryFilterByDateRangeOnlyStart(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)},
@@ -90,7 +92,7 @@ func TestEntryFilterByDateRangeOnlyStart(t *testing.T) {
 }
 
 func TestEntryFilterByDateRangeOnlyEnd(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)},
@@ -105,7 +107,7 @@ func TestEntryFilterByDateRangeOnlyEnd(t *testing.T) {
 }
 
 func TestEntryFilterByDateRangeBothZero(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Time{}},
@@ -118,7 +120,7 @@ func TestEntryFilterByDateRangeBothZero(t *testing.T) {
 }
 
 func TestEntryFilterByRegistry(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Registry: "apnic"},
 		{Registry: "arin"},
 		{Registry: "apnic"},
@@ -131,7 +133,7 @@ func TestEntryFilterByRegistry(t *testing.T) {
 }
 
 func TestEntryFilterChained(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Country: "CN", Type: "ipv4", Status: "allocated"},
 		{Country: "CN", Type: "ipv6", Status: "allocated"},
 		{Country: "AU", Type: "ipv4", Status: "assigned"},
@@ -150,7 +152,7 @@ func TestEntryFilterChained(t *testing.T) {
 }
 
 func TestEntryFilterCount(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Country: "CN"},
 		{Country: "AU"},
 		{Country: "CN"},
@@ -163,7 +165,7 @@ func TestEntryFilterCount(t *testing.T) {
 }
 
 func TestEntryFilterEmptyResult(t *testing.T) {
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Country: "CN"},
 	}
 
@@ -176,7 +178,7 @@ func TestEntryFilterEmptyResult(t *testing.T) {
 // ExtendedEntryFilter tests
 
 func TestNewExtendedFilter(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Country: "CN", OpaqueID: "A1"},
 	}
 	f := NewExtendedFilter(entries)
@@ -186,7 +188,7 @@ func TestNewExtendedFilter(t *testing.T) {
 }
 
 func TestExtendedFilterByCountry(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Country: "CN"},
 		{Country: "AU"},
 		{Country: "CN"},
@@ -199,7 +201,7 @@ func TestExtendedFilterByCountry(t *testing.T) {
 }
 
 func TestExtendedFilterByType(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Type: "ipv4"},
 		{Type: "ipv6"},
 		{Type: "ipv4"},
@@ -212,7 +214,7 @@ func TestExtendedFilterByType(t *testing.T) {
 }
 
 func TestExtendedFilterByStatus(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Status: "allocated"},
 		{Status: "assigned"},
 		{Status: "allocated"},
@@ -225,7 +227,7 @@ func TestExtendedFilterByStatus(t *testing.T) {
 }
 
 func TestExtendedFilterByOpaqueID(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{OpaqueID: "A1"},
 		{OpaqueID: "A2"},
 		{OpaqueID: "A1"},
@@ -238,7 +240,7 @@ func TestExtendedFilterByOpaqueID(t *testing.T) {
 }
 
 func TestExtendedFilterByDateRange(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Time{}},
@@ -254,7 +256,7 @@ func TestExtendedFilterByDateRange(t *testing.T) {
 }
 
 func TestExtendedFilterByDateRangeOnlyStart(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Time{}},
@@ -268,7 +270,7 @@ func TestExtendedFilterByDateRangeOnlyStart(t *testing.T) {
 }
 
 func TestExtendedFilterByDateRangeOnlyEnd(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Time{}},
@@ -282,7 +284,7 @@ func TestExtendedFilterByDateRangeOnlyEnd(t *testing.T) {
 }
 
 func TestExtendedFilterByDateRangeBothZero(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
 		{Date: time.Time{}},
 	}
@@ -295,11 +297,11 @@ func TestExtendedFilterByDateRangeBothZero(t *testing.T) {
 
 func TestEntryFilterByDateRangeBeforeStart(t *testing.T) {
 	// Test the e.Date.Before(start) branch
-	entries := []DelegatedEntry{
+	entries := []models.DelegatedEntry{
 		{Date: time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)}, // before start
 		{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}, // in range
 		{Date: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)}, // after end
-		{Date: time.Time{}},                                    // zero date
+		{Date: time.Time{}}, // zero date
 	}
 
 	start := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -313,11 +315,11 @@ func TestEntryFilterByDateRangeBeforeStart(t *testing.T) {
 
 func TestExtendedFilterByDateRangeBeforeStart(t *testing.T) {
 	// Test the e.Date.Before(start) branch for ExtendedEntryFilter
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Date: time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)}, // before start
 		{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}, // in range
 		{Date: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)}, // after end
-		{Date: time.Time{}},                                    // zero date
+		{Date: time.Time{}}, // zero date
 	}
 
 	start := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -330,7 +332,7 @@ func TestExtendedFilterByDateRangeBeforeStart(t *testing.T) {
 }
 
 func TestExtendedFilterChained(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Country: "CN", Type: "ipv4", OpaqueID: "A1"},
 		{Country: "CN", Type: "ipv6", OpaqueID: "A2"},
 		{Country: "AU", Type: "ipv4", OpaqueID: "A1"},
@@ -347,7 +349,7 @@ func TestExtendedFilterChained(t *testing.T) {
 }
 
 func TestExtendedFilterCount(t *testing.T) {
-	entries := []DelegatedExtendedEntry{
+	entries := []models.DelegatedExtendedEntry{
 		{Country: "CN"},
 		{Country: "AU"},
 	}

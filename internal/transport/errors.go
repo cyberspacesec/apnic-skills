@@ -18,5 +18,5 @@ var (
 	ErrInvalidYear       = errors.New("invalid year")
 	ErrInvalidStatsType  = errors.New("invalid stats file type")
 	ErrInvalidIRRType    = errors.New("invalid IRR object type")
-	ErrInvalidRExParam  = errors.New("invalid REx query parameter")
+	ErrInvalidRExParam   = errors.New("invalid REx query parameter")
 )

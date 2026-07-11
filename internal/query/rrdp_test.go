@@ -7,6 +7,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 const sampleRRDPNotification = `<notification xmlns="http://www.ripe.net/rpki/rrdp" version="1" session_id="8dad0cc8-0bc8-4021-88ed-e75e295df946" serial="65148">
@@ -124,9 +127,9 @@ func TestFetchRRDPNotification(t *testing.T) {
 		w.Write([]byte(sampleRRDPNotification))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithRRDPBaseURL(srv.URL), WithJitter(0, 0))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRRDPBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	n, err := client.FetchRRDPNotification(context.Background())
+	n, err := FetchRRDPNotification(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchRRDPNotification() error: %v", err)
 	}
@@ -141,9 +144,9 @@ func TestFetchRRDPSnapshot(t *testing.T) {
 		w.Write([]byte(sampleRRDPSnapshot))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithRRDPBaseURL(srv.URL), WithJitter(0, 0))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRRDPBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	s, err := client.FetchRRDPSnapshot(context.Background(), srv.URL+"/snapshot.xml")
+	s, err := FetchRRDPSnapshot(context.Background(), client, srv.URL+"/snapshot.xml")
 	if err != nil {
 		t.Fatalf("FetchRRDPSnapshot() error: %v", err)
 	}
@@ -160,9 +163,9 @@ func TestFetchRRDPDelta(t *testing.T) {
 		w.Write([]byte(sampleRRDPSnapshot))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithRRDPBaseURL(srv.URL), WithJitter(0, 0))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRRDPBaseURL(srv.URL), transport.WithJitter(0, 0))
 
-	d, err := client.FetchRRDPDelta(context.Background(), srv.URL+"/delta.xml")
+	d, err := FetchRRDPDelta(context.Background(), client, srv.URL+"/delta.xml")
 	if err != nil {
 		t.Fatalf("FetchRRDPDelta() error: %v", err)
 	}
@@ -176,11 +179,11 @@ func TestFetchRRDPHTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithRRDPBaseURL(srv.URL), WithJitter(0, 0))
-	if _, err := client.FetchRRDPNotification(context.Background()); err == nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRRDPBaseURL(srv.URL), transport.WithJitter(0, 0))
+	if _, err := FetchRRDPNotification(context.Background(), client); err == nil {
 		t.Error("expected error on HTTP 500 for notification")
 	}
-	if _, err := client.FetchRRDPSnapshot(context.Background(), srv.URL+"/snapshot.xml"); err == nil {
+	if _, err := FetchRRDPSnapshot(context.Background(), client, srv.URL+"/snapshot.xml"); err == nil {
 		t.Error("expected error on HTTP 500 for snapshot")
 	}
 }
@@ -194,12 +197,12 @@ func TestFetchRRDPNotification_GzipDecompressedOnce(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/xml")
 		w.Header().Set("Content-Encoding", "gzip")
-		w.Write(gzipBytes(sampleRRDPNotification))
+		w.Write(testutil.GzipBytes(sampleRRDPNotification))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithRRDPBaseURL(srv.URL), WithJitter(0, 0), WithStealth(true))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRRDPBaseURL(srv.URL), transport.WithJitter(0, 0), transport.WithStealth(true))
 
-	n, err := client.FetchRRDPNotification(context.Background())
+	n, err := FetchRRDPNotification(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchRRDPNotification() with gzip error: %v", err)
 	}
@@ -218,12 +221,12 @@ func TestFetchRRDPSnapshot_GzipDecompressedOnce(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/xml")
 		w.Header().Set("Content-Encoding", "gzip")
-		w.Write(gzipBytes(sampleRRDPSnapshot))
+		w.Write(testutil.GzipBytes(sampleRRDPSnapshot))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithRRDPBaseURL(srv.URL), WithJitter(0, 0), WithStealth(true))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRRDPBaseURL(srv.URL), transport.WithJitter(0, 0), transport.WithStealth(true))
 
-	s, err := client.FetchRRDPSnapshot(context.Background(), srv.URL+"/snapshot.xml")
+	s, err := FetchRRDPSnapshot(context.Background(), client, srv.URL+"/snapshot.xml")
 	if err != nil {
 		t.Fatalf("FetchRRDPSnapshot() with gzip error: %v", err)
 	}
@@ -252,10 +255,10 @@ func TestParseRRDPNotification_SnapshotSerial(t *testing.T) {
 
 // TestFetchRRDPSnapshot_RequestError covers the doHTTPRequest-error branch.
 func TestFetchRRDPSnapshot_RequestError(t *testing.T) {
-	c := NewClient(
-		WithHTTPClient(&http.Client{Transport: dialErrRoundTripper{}}),
-		WithRRDPBaseURL("http://x"), WithJitter(0, 0), WithCacheTTL(0))
-	if _, err := c.FetchRRDPSnapshot(context.Background(), "http://x/s.xml"); err == nil {
+	c := transport.NewClient(
+		transport.WithHTTPClient(&http.Client{Transport: testutil.DialErrRoundTripper{}}),
+		transport.WithRRDPBaseURL("http://x"), transport.WithJitter(0, 0), transport.WithCacheTTL(0))
+	if _, err := FetchRRDPSnapshot(context.Background(), c, "http://x/s.xml"); err == nil {
 		t.Error("expected request error for RRDP snapshot")
 	}
 }
@@ -270,9 +273,9 @@ func TestFetchRRDPSnapshot_GzipInitError(t *testing.T) {
 		w.Write([]byte("not-gzip"))
 	}))
 	defer srv.Close()
-	c := NewClient(WithHTTPClient(srv.Client()), WithRRDPBaseURL(srv.URL),
-		WithJitter(0, 0), WithCacheTTL(0))
-	if _, err := c.FetchRRDPSnapshot(context.Background(), srv.URL+"/s.xml"); err == nil {
+	c := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithRRDPBaseURL(srv.URL),
+		transport.WithJitter(0, 0), transport.WithCacheTTL(0))
+	if _, err := FetchRRDPSnapshot(context.Background(), c, srv.URL+"/s.xml"); err == nil {
 		t.Error("expected gzip init error for RRDP snapshot")
 	}
 }

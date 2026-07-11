@@ -2,16 +2,18 @@ package query
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"testing"
 	"time"
 )
 
 func TestQueryWhois(t *testing.T) {
-	addr, cleanup := mockWhoisServer(t, sampleWhoisResponse)
+	addr, cleanup := mockWhoisServer(t, testutil.SampleWhoisResponse)
 	defer cleanup()
 
-	client := NewClient(WithWhoisServer(addr))
-	response, err := client.QueryWhois(context.Background(), "1.1.1.1")
+	client := transport.NewClient(transport.WithWhoisServer(addr))
+	response, err := QueryWhois(context.Background(), client, "1.1.1.1")
 	if err != nil {
 		t.Fatalf("QueryWhois() error: %v", err)
 	}
@@ -21,11 +23,11 @@ func TestQueryWhois(t *testing.T) {
 }
 
 func TestQueryWhoisIP(t *testing.T) {
-	addr, cleanup := mockWhoisServer(t, sampleWhoisResponse)
+	addr, cleanup := mockWhoisServer(t, testutil.SampleWhoisResponse)
 	defer cleanup()
 
-	client := NewClient(WithWhoisServer(addr))
-	info, err := client.QueryWhoisIP(context.Background(), "1.1.1.1")
+	client := transport.NewClient(transport.WithWhoisServer(addr))
+	info, err := QueryWhoisIP(context.Background(), client, "1.1.1.1")
 	if err != nil {
 		t.Fatalf("QueryWhoisIP() error: %v", err)
 	}
@@ -47,11 +49,11 @@ func TestQueryWhoisIP(t *testing.T) {
 }
 
 func TestQueryWhoisASN(t *testing.T) {
-	addr, cleanup := mockWhoisServer(t, sampleWhoisResponse)
+	addr, cleanup := mockWhoisServer(t, testutil.SampleWhoisResponse)
 	defer cleanup()
 
-	client := NewClient(WithWhoisServer(addr))
-	info, err := client.QueryWhoisASN(context.Background(), 13335)
+	client := transport.NewClient(transport.WithWhoisServer(addr))
+	info, err := QueryWhoisASN(context.Background(), client, 13335)
 	if err != nil {
 		t.Fatalf("QueryWhoisASN() error: %v", err)
 	}
@@ -61,11 +63,11 @@ func TestQueryWhoisASN(t *testing.T) {
 }
 
 func TestQueryWhoisWithFlags(t *testing.T) {
-	addr, cleanup := mockWhoisServer(t, sampleWhoisResponse)
+	addr, cleanup := mockWhoisServer(t, testutil.SampleWhoisResponse)
 	defer cleanup()
 
-	client := NewClient(WithWhoisServer(addr))
-	response, err := client.QueryWhoisWithFlags(context.Background(), "1.1.1.1", "r")
+	client := transport.NewClient(transport.WithWhoisServer(addr))
+	response, err := QueryWhoisWithFlags(context.Background(), client, "1.1.1.1", "r")
 	if err != nil {
 		t.Fatalf("QueryWhoisWithFlags() error: %v", err)
 	}
@@ -75,11 +77,11 @@ func TestQueryWhoisWithFlags(t *testing.T) {
 }
 
 func TestQueryWhoisWithEmptyFlags(t *testing.T) {
-	addr, cleanup := mockWhoisServer(t, sampleWhoisResponse)
+	addr, cleanup := mockWhoisServer(t, testutil.SampleWhoisResponse)
 	defer cleanup()
 
-	client := NewClient(WithWhoisServer(addr))
-	response, err := client.QueryWhoisWithFlags(context.Background(), "1.1.1.1", "")
+	client := transport.NewClient(transport.WithWhoisServer(addr))
+	response, err := QueryWhoisWithFlags(context.Background(), client, "1.1.1.1", "")
 	if err != nil {
 		t.Fatalf("QueryWhoisWithFlags() with empty flags error: %v", err)
 	}
@@ -89,14 +91,14 @@ func TestQueryWhoisWithEmptyFlags(t *testing.T) {
 }
 
 func TestQueryWhoisWithContextDeadline(t *testing.T) {
-	addr, cleanup := mockWhoisServer(t, sampleWhoisResponse)
+	addr, cleanup := mockWhoisServer(t, testutil.SampleWhoisResponse)
 	defer cleanup()
 
-	client := NewClient(WithWhoisServer(addr))
+	client := transport.NewClient(transport.WithWhoisServer(addr))
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
 	defer cancel()
 
-	response, err := client.QueryWhois(ctx, "1.1.1.1")
+	response, err := QueryWhois(ctx, client, "1.1.1.1")
 	if err != nil {
 		t.Fatalf("QueryWhois() with deadline error: %v", err)
 	}
@@ -106,7 +108,7 @@ func TestQueryWhoisWithContextDeadline(t *testing.T) {
 }
 
 func TestParseWhoisResponse(t *testing.T) {
-	info := ParseWhoisResponse(sampleWhoisResponse)
+	info := ParseWhoisResponse(testutil.SampleWhoisResponse)
 	if info.Network != "1.1.1.0 - 1.1.1.255" {
 		t.Errorf("network = %q", info.Network)
 	}
@@ -194,34 +196,34 @@ func TestParseWhoisDateFormats(t *testing.T) {
 }
 
 func TestQueryWhoisConnectionFailed(t *testing.T) {
-	client := NewClient(WithWhoisServer("127.0.0.1:1")) // port 1 should fail
-	_, err := client.QueryWhois(context.Background(), "1.1.1.1")
+	client := transport.NewClient(transport.WithWhoisServer("127.0.0.1:1")) // port 1 should fail
+	_, err := QueryWhois(context.Background(), client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for failed connection")
 	}
 }
 
 func TestQueryWhoisCancelledContext(t *testing.T) {
-	client := NewClient(WithWhoisServer("127.0.0.1:1"))
+	client := transport.NewClient(transport.WithWhoisServer("127.0.0.1:1"))
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := client.QueryWhois(ctx, "1.1.1.1")
+	_, err := QueryWhois(ctx, client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for cancelled context")
 	}
 }
 
 func TestQueryWhoisIPConnectionFailed(t *testing.T) {
-	client := NewClient(WithWhoisServer("127.0.0.1:1"))
-	_, err := client.QueryWhoisIP(context.Background(), "1.1.1.1")
+	client := transport.NewClient(transport.WithWhoisServer("127.0.0.1:1"))
+	_, err := QueryWhoisIP(context.Background(), client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for failed connection")
 	}
 }
 
 func TestQueryWhoisASNConnectionFailed(t *testing.T) {
-	client := NewClient(WithWhoisServer("127.0.0.1:1"))
-	_, err := client.QueryWhoisASN(context.Background(), 13335)
+	client := transport.NewClient(transport.WithWhoisServer("127.0.0.1:1"))
+	_, err := QueryWhoisASN(context.Background(), client, 13335)
 	if err == nil {
 		t.Error("expected error for failed connection")
 	}
@@ -230,15 +232,15 @@ func TestQueryWhoisASNConnectionFailed(t *testing.T) {
 func TestQueryWhoisWriteError(t *testing.T) {
 	// Use a mock whois server and inject a dial function that returns a conn
 	// with a simulated write error.
-	addr, cleanup := mockWhoisServer(t, sampleWhoisResponse)
+	addr, cleanup := mockWhoisServer(t, testutil.SampleWhoisResponse)
 	defer cleanup()
 
-	client := NewClient(
-		WithWhoisServer(addr),
-		withDialWhois(dialWithWriteError(addr)),
+	client := transport.NewClient(
+		transport.WithWhoisServer(addr),
+		transport.WithDialWhois(testutil.DialWithWriteError(addr)),
 	)
 
-	_, err := client.QueryWhois(context.Background(), "1.1.1.1")
+	_, err := QueryWhois(context.Background(), client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for write failure")
 	}
@@ -247,15 +249,15 @@ func TestQueryWhoisWriteError(t *testing.T) {
 func TestQueryWhoisReadError(t *testing.T) {
 	// Use a mock whois server and inject a dial function that returns a conn
 	// with a simulated read error.
-	addr, cleanup := mockWhoisServer(t, sampleWhoisResponse)
+	addr, cleanup := mockWhoisServer(t, testutil.SampleWhoisResponse)
 	defer cleanup()
 
-	client := NewClient(
-		WithWhoisServer(addr),
-		withDialWhois(dialWithReadError(addr)),
+	client := transport.NewClient(
+		transport.WithWhoisServer(addr),
+		transport.WithDialWhois(testutil.DialWithReadError(addr)),
 	)
 
-	_, err := client.QueryWhois(context.Background(), "1.1.1.1")
+	_, err := QueryWhois(context.Background(), client, "1.1.1.1")
 	if err == nil {
 		t.Error("expected error for read failure")
 	}
@@ -265,16 +267,16 @@ func TestQueryWhoisReadError(t *testing.T) {
 // queryWhois: with a rate limiter and an already-cancelled context, the query
 // fails before any dial is attempted.
 func TestQueryWhois_RateLimitError(t *testing.T) {
-	addr, cleanup := mockWhoisServer(t, sampleWhoisResponse)
+	addr, cleanup := mockWhoisServer(t, testutil.SampleWhoisResponse)
 	defer cleanup()
-	client := NewClient(
-		WithWhoisServer(addr),
-		WithRateLimit(1.0),
-		WithJitter(0, 0),
+	client := transport.NewClient(
+		transport.WithWhoisServer(addr),
+		transport.WithRateLimit(1.0),
+		transport.WithJitter(0, 0),
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := client.QueryWhois(ctx, "1.1.1.1"); err == nil {
+	if _, err := QueryWhois(ctx, client, "1.1.1.1"); err == nil {
 		t.Error("expected waitRateLimit error from cancelled context")
 	}
 }

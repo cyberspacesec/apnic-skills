@@ -2,6 +2,8 @@ package stats
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,9 +12,9 @@ import (
 )
 
 func TestParseIPv6AssignedFull(t *testing.T) {
-	result, err := parseIPv6AssignedFull(strings.NewReader(sampleIPv6AssignedData))
+	result, err := ParseIPv6AssignedFull(strings.NewReader(testutil.SampleIPv6AssignedData))
 	if err != nil {
-		t.Fatalf("parseIPv6AssignedFull() error: %v", err)
+		t.Fatalf("ParseIPv6AssignedFull() error: %v", err)
 	}
 	if result.Header.Version != "2" {
 		t.Errorf("header version = %q, want 2", result.Header.Version)
@@ -56,9 +58,9 @@ apnic|JP|ipv4|1.2.3.0|24|20200101
 apnic|KR|ipv6|2001:7fa:0:2::|300|20020117
 apnic|TW|ipv6|2001:7fa:1::
 `
-	result, err := parseIPv6AssignedFull(strings.NewReader(data))
+	result, err := ParseIPv6AssignedFull(strings.NewReader(data))
 	if err != nil {
-		t.Fatalf("parseIPv6AssignedFull() error: %v", err)
+		t.Fatalf("ParseIPv6AssignedFull() error: %v", err)
 	}
 	// Only the HK entry survives: ipv4 row skipped, prefix 300 invalid (out of range),
 	// and the TW row has too few fields (no date column → still 5 fields, < 6 required).
@@ -73,17 +75,17 @@ apnic|TW|ipv6|2001:7fa:1::
 func TestFetchIPv6AssignedEntries(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleIPv6AssignedData))
+		w.Write([]byte(testutil.SampleIPv6AssignedData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	entries, err := client.FetchIPv6AssignedEntries(context.Background())
+	entries, err := FetchIPv6AssignedEntries(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchIPv6AssignedEntries() error: %v", err)
 	}
@@ -96,17 +98,17 @@ func TestFetchIPv6AssignedEntriesByDate(t *testing.T) {
 	var requestedURL string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestedURL = r.URL.Path
-		serveDated(w, r, sampleIPv6AssignedData)
+		testutil.ServeDated(w, r, testutil.SampleIPv6AssignedData)
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	entries, err := client.FetchIPv6AssignedEntriesByDate(context.Background(), "20260629")
+	entries, err := FetchIPv6AssignedEntriesByDate(context.Background(), client, "20260629")
 	if err != nil {
 		t.Fatalf("FetchIPv6AssignedEntriesByDate() error: %v", err)
 	}
@@ -124,17 +126,17 @@ func TestFetchIPv6AssignedEntriesByDate(t *testing.T) {
 func TestFetchIPv6AssignedResult(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleIPv6AssignedData))
+		w.Write([]byte(testutil.SampleIPv6AssignedData))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchIPv6AssignedResult(context.Background(), "")
+	result, err := FetchIPv6AssignedResult(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchIPv6AssignedResult() error: %v", err)
 	}
@@ -152,13 +154,13 @@ func TestFetchIPv6AssignedResultHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchIPv6AssignedResult(context.Background(), "")
+	_, err := FetchIPv6AssignedResult(context.Background(), client, "")
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}
@@ -170,70 +172,14 @@ func TestFetchIPv6AssignedEntriesByDateError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchIPv6AssignedEntriesByDate(context.Background(), "20260629")
+	_, err := FetchIPv6AssignedEntriesByDate(context.Background(), client, "20260629")
 	if err == nil {
 		t.Error("expected error for HTTP 404 in FetchIPv6AssignedEntriesByDate")
-	}
-}
-
-func TestGetIPv6AssignedEntriesWithCache(t *testing.T) {
-	client := NewClient(WithCacheTTL(1 * time.Hour))
-	entries := []IPv6AssignedEntry{
-		{Country: "HK", Start: "2001:7fa:0:1::", Value: 64},
-	}
-	client.cache.set(cacheKeyIPv6Assigned, entries)
-
-	result, err := client.GetIPv6AssignedEntries(context.Background())
-	if err != nil {
-		t.Fatalf("GetIPv6AssignedEntries() error: %v", err)
-	}
-	if len(result) != 1 {
-		t.Errorf("cached entries count = %d, want 1", len(result))
-	}
-}
-
-func TestGetIPv6AssignedEntriesFetchPath(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(sampleIPv6AssignedData))
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	result, err := client.GetIPv6AssignedEntries(context.Background())
-	if err != nil {
-		t.Fatalf("GetIPv6AssignedEntries() error: %v", err)
-	}
-	if len(result) == 0 {
-		t.Error("expected entries from fetch path")
-	}
-}
-
-func TestGetIPv6AssignedEntriesFetchError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	_, err := client.GetIPv6AssignedEntries(context.Background())
-	if err == nil {
-		t.Error("expected error for fetch failure in GetIPv6AssignedEntries")
 	}
 }

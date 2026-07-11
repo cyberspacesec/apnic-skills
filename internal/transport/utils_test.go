@@ -22,17 +22,17 @@ func TestParseIPv4Count(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		val, err := parseIPv4Count(tt.input)
+		val, err := ParseIPv4Count(tt.input)
 		if tt.hasErr {
 			if err == nil {
-				t.Errorf("parseIPv4Count(%q) expected error, got nil", tt.input)
+				t.Errorf("ParseIPv4Count(%q) expected error, got nil", tt.input)
 			}
 		} else {
 			if err != nil {
-				t.Errorf("parseIPv4Count(%q) unexpected error: %v", tt.input, err)
+				t.Errorf("ParseIPv4Count(%q) unexpected error: %v", tt.input, err)
 			}
 			if val != tt.expected {
-				t.Errorf("parseIPv4Count(%q) = %d, want %d", tt.input, val, tt.expected)
+				t.Errorf("ParseIPv4Count(%q) = %d, want %d", tt.input, val, tt.expected)
 			}
 		}
 	}
@@ -55,17 +55,17 @@ func TestParseIPv6Prefix(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		val, err := parseIPv6Prefix(tt.input)
+		val, err := ParseIPv6Prefix(tt.input)
 		if tt.hasErr {
 			if err == nil {
-				t.Errorf("parseIPv6Prefix(%q) expected error, got nil", tt.input)
+				t.Errorf("ParseIPv6Prefix(%q) expected error, got nil", tt.input)
 			}
 		} else {
 			if err != nil {
-				t.Errorf("parseIPv6Prefix(%q) unexpected error: %v", tt.input, err)
+				t.Errorf("ParseIPv6Prefix(%q) unexpected error: %v", tt.input, err)
 			}
 			if val != tt.expected {
-				t.Errorf("parseIPv6Prefix(%q) = %d, want %d", tt.input, val, tt.expected)
+				t.Errorf("ParseIPv6Prefix(%q) = %d, want %d", tt.input, val, tt.expected)
 			}
 		}
 	}
@@ -85,17 +85,17 @@ func TestParseASNValue(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		val, err := parseASNValue(tt.input)
+		val, err := ParseASNValue(tt.input)
 		if tt.hasErr {
 			if err == nil {
-				t.Errorf("parseASNValue(%q) expected error, got nil", tt.input)
+				t.Errorf("ParseASNValue(%q) expected error, got nil", tt.input)
 			}
 		} else {
 			if err != nil {
-				t.Errorf("parseASNValue(%q) unexpected error: %v", tt.input, err)
+				t.Errorf("ParseASNValue(%q) unexpected error: %v", tt.input, err)
 			}
 			if val != tt.expected {
-				t.Errorf("parseASNValue(%q) = %d, want %d", tt.input, val, tt.expected)
+				t.Errorf("ParseASNValue(%q) = %d, want %d", tt.input, val, tt.expected)
 			}
 		}
 	}
@@ -115,17 +115,17 @@ func TestParseASNCount(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		val, err := parseASNCount(tt.input)
+		val, err := ParseASNCount(tt.input)
 		if tt.hasErr {
 			if err == nil {
-				t.Errorf("parseASNCount(%q) expected error, got nil", tt.input)
+				t.Errorf("ParseASNCount(%q) expected error, got nil", tt.input)
 			}
 		} else {
 			if err != nil {
-				t.Errorf("parseASNCount(%q) unexpected error: %v", tt.input, err)
+				t.Errorf("ParseASNCount(%q) unexpected error: %v", tt.input, err)
 			}
 			if val != tt.expected {
-				t.Errorf("parseASNCount(%q) = %d, want %d", tt.input, val, tt.expected)
+				t.Errorf("ParseASNCount(%q) = %d, want %d", tt.input, val, tt.expected)
 			}
 		}
 	}
@@ -145,14 +145,14 @@ func TestParseStatsHeader(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		header, err := parseStatsHeader(tt.input)
+		header, err := ParseStatsHeader(tt.input)
 		if tt.hasErr {
 			if err == nil {
-				t.Errorf("parseStatsHeader(%q) expected error", tt.input)
+				t.Errorf("ParseStatsHeader(%q) expected error", tt.input)
 			}
 		} else {
 			if err != nil {
-				t.Errorf("parseStatsHeader(%q) unexpected error: %v", tt.input, err)
+				t.Errorf("ParseStatsHeader(%q) unexpected error: %v", tt.input, err)
 			}
 			if header.Version != tt.version {
 				t.Errorf("version = %q, want %q", header.Version, tt.version)
@@ -183,14 +183,14 @@ func TestParseSummaryLine(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		summary, err := parseSummaryLine(tt.input)
+		summary, err := ParseSummaryLine(tt.input)
 		if tt.hasErr {
 			if err == nil {
-				t.Errorf("parseSummaryLine(%q) expected error", tt.input)
+				t.Errorf("ParseSummaryLine(%q) expected error", tt.input)
 			}
 		} else {
 			if err != nil {
-				t.Errorf("parseSummaryLine(%q) unexpected error: %v", tt.input, err)
+				t.Errorf("ParseSummaryLine(%q) unexpected error: %v", tt.input, err)
 			}
 			if summary.Registry != tt.registry {
 				t.Errorf("registry = %q, want %q", summary.Registry, tt.registry)
@@ -217,9 +217,9 @@ func TestIsHeaderLine(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := isHeaderLine(tt.input)
+		result := IsHeaderLine(tt.input)
 		if result != tt.expect {
-			t.Errorf("isHeaderLine(%q) = %v, want %v", tt.input, result, tt.expect)
+			t.Errorf("IsHeaderLine(%q) = %v, want %v", tt.input, result, tt.expect)
 		}
 	}
 }
@@ -234,9 +234,9 @@ func TestIsSummaryLine(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := isSummaryLine(tt.input)
+		result := IsSummaryLine(tt.input)
 		if result != tt.expect {
-			t.Errorf("isSummaryLine(%q) = %v, want %v", tt.input, result, tt.expect)
+			t.Errorf("IsSummaryLine(%q) = %v, want %v", tt.input, result, tt.expect)
 		}
 	}
 }
@@ -260,9 +260,9 @@ func TestBuildStatsURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := buildStatsURL(base, tt.dataType, tt.date)
+		result := BuildStatsURL(base, tt.dataType, tt.date)
 		if result != tt.expected {
-			t.Errorf("buildStatsURL(%q, %q, %q) = %q, want %q", base, tt.dataType, tt.date, result, tt.expected)
+			t.Errorf("BuildStatsURL(%q, %q, %q) = %q, want %q", base, tt.dataType, tt.date, result, tt.expected)
 		}
 	}
 }
@@ -278,8 +278,8 @@ func TestBuildStatsMD5URL(t *testing.T) {
 		{"delegated", "20260627", base + "2026/delegated-apnic-20260627.md5.gz"},
 	}
 	for _, tt := range tests {
-		if got := buildStatsMD5URL(base, tt.dataType, tt.date); got != tt.expected {
-			t.Errorf("buildStatsMD5URL(%q,%q) = %q, want %q", tt.dataType, tt.date, got, tt.expected)
+		if got := BuildStatsMD5URL(base, tt.dataType, tt.date); got != tt.expected {
+			t.Errorf("BuildStatsMD5URL(%q,%q) = %q, want %q", tt.dataType, tt.date, got, tt.expected)
 		}
 	}
 }
@@ -295,8 +295,8 @@ func TestBuildStatsASCURL(t *testing.T) {
 		{"delegated", "20260627", base + "2026/delegated-apnic-20260627.asc.gz"},
 	}
 	for _, tt := range tests {
-		if got := buildStatsASCURL(base, tt.dataType, tt.date); got != tt.expected {
-			t.Errorf("buildStatsASCURL(%q,%q) = %q, want %q", tt.dataType, tt.date, got, tt.expected)
+		if got := BuildStatsASCURL(base, tt.dataType, tt.date); got != tt.expected {
+			t.Errorf("BuildStatsASCURL(%q,%q) = %q, want %q", tt.dataType, tt.date, got, tt.expected)
 		}
 	}
 }
@@ -312,18 +312,18 @@ func TestParseOpaqueID(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := parseOpaqueID(tt.input)
+		result := ParseOpaqueID(tt.input)
 		if result != tt.expected {
-			t.Errorf("parseOpaqueID(%q) = %q, want %q", tt.input, result, tt.expected)
+			t.Errorf("ParseOpaqueID(%q) = %q, want %q", tt.input, result, tt.expected)
 		}
 	}
 }
 
 func TestParseStatsDate(t *testing.T) {
 	tests := []struct {
-		input    string
-		hasErr   bool
-		isEmpty  bool
+		input   string
+		hasErr  bool
+		isEmpty bool
 	}{
 		{"20110811", false, false},
 		{"20260627", false, false},
@@ -333,16 +333,16 @@ func TestParseStatsDate(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tm, err := parseStatsDate(tt.input)
+		tm, err := ParseStatsDate(tt.input)
 		if tt.hasErr {
 			if err == nil {
-				t.Errorf("parseStatsDate(%q) expected error", tt.input)
+				t.Errorf("ParseStatsDate(%q) expected error", tt.input)
 			}
 		} else if err != nil {
-			t.Errorf("parseStatsDate(%q) unexpected error: %v", tt.input, err)
+			t.Errorf("ParseStatsDate(%q) unexpected error: %v", tt.input, err)
 		}
 		if tt.isEmpty && !tm.IsZero() {
-			t.Errorf("parseStatsDate(%q) expected zero time", tt.input)
+			t.Errorf("ParseStatsDate(%q) expected zero time", tt.input)
 		}
 	}
 }

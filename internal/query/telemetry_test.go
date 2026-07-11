@@ -2,6 +2,8 @@ package query
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,17 +13,17 @@ import (
 func TestFetchTelemetry(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, ".md5") {
-			w.Write([]byte(sampleTelemetryMD5))
+			w.Write([]byte(testutil.SampleTelemetryMD5))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(sampleTelemetryJSON))
+		w.Write([]byte(testutil.SampleTelemetryJSON))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithFTPBaseURL(srv.URL+"/"), WithJitter(0, 0))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithFTPBaseURL(srv.URL+"/"), transport.WithJitter(0, 0))
 
 	// Latest.
-	tel, err := client.FetchTelemetry(context.Background(), "")
+	tel, err := FetchTelemetry(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchTelemetry() error: %v", err)
 	}
@@ -42,7 +44,7 @@ func TestFetchTelemetry(t *testing.T) {
 	}
 
 	// Archived snapshot by date.
-	tel2, err := client.FetchTelemetry(context.Background(), "20260701")
+	tel2, err := FetchTelemetry(context.Background(), client, "20260701")
 	if err != nil {
 		t.Fatalf("FetchTelemetry(date) error: %v", err)
 	}
@@ -51,7 +53,7 @@ func TestFetchTelemetry(t *testing.T) {
 	}
 
 	// MD5 sidecar.
-	md5, err := client.FetchTelemetryMD5(context.Background(), "")
+	md5, err := FetchTelemetryMD5(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchTelemetryMD5() error: %v", err)
 	}
@@ -65,8 +67,8 @@ func TestFetchTelemetryInvalidJSON(t *testing.T) {
 		w.Write([]byte("not json"))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithFTPBaseURL(srv.URL+"/"), WithJitter(0, 0))
-	if _, err := client.FetchTelemetry(context.Background(), ""); err == nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithFTPBaseURL(srv.URL+"/"), transport.WithJitter(0, 0))
+	if _, err := FetchTelemetry(context.Background(), client, ""); err == nil {
 		t.Error("expected error for invalid JSON")
 	}
 }
@@ -76,11 +78,11 @@ func TestFetchTelemetryHTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithFTPBaseURL(srv.URL+"/"), WithJitter(0, 0))
-	if _, err := client.FetchTelemetry(context.Background(), ""); err == nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithFTPBaseURL(srv.URL+"/"), transport.WithJitter(0, 0))
+	if _, err := FetchTelemetry(context.Background(), client, ""); err == nil {
 		t.Error("expected error on HTTP 500")
 	}
-	if _, err := client.FetchTelemetryMD5(context.Background(), ""); err == nil {
+	if _, err := FetchTelemetryMD5(context.Background(), client, ""); err == nil {
 		t.Error("expected error on HTTP 500 for md5")
 	}
 }

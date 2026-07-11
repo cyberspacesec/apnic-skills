@@ -2,6 +2,8 @@ package query
 
 import (
 	"context"
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,7 +12,7 @@ import (
 )
 
 func TestParseTransfersData(t *testing.T) {
-	result, err := parseTransfersData(sampleTransfersJSON)
+	result, err := parseTransfersData(testutil.SampleTransfersJSON)
 	if err != nil {
 		t.Fatalf("parseTransfersData() error: %v", err)
 	}
@@ -57,7 +59,7 @@ func TestParseTransfersData(t *testing.T) {
 }
 
 func TestParseTransfersMetadata(t *testing.T) {
-	result, err := parseTransfersData(sampleTransfersJSON)
+	result, err := parseTransfersData(testutil.SampleTransfersJSON)
 	if err != nil {
 		t.Fatalf("parseTransfersData() error: %v", err)
 	}
@@ -179,17 +181,17 @@ func TestParseTransfersEmptyNetSets(t *testing.T) {
 func TestFetchTransfers(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(sampleTransfersJSON))
+		w.Write([]byte(testutil.SampleTransfersJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchTransfers(context.Background())
+	result, err := FetchTransfers(context.Background(), client)
 	if err != nil {
 		t.Fatalf("FetchTransfers() error: %v", err)
 	}
@@ -201,17 +203,17 @@ func TestFetchTransfers(t *testing.T) {
 func TestFetchTransfersByYear(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(sampleTransfersJSON))
+		w.Write([]byte(testutil.SampleTransfersJSON))
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	result, err := client.FetchTransfersByYear(context.Background(), 2026)
+	result, err := FetchTransfersByYear(context.Background(), client, 2026)
 	if err != nil {
 		t.Fatalf("FetchTransfersByYear() error: %v", err)
 	}
@@ -226,13 +228,13 @@ func TestFetchTransfersHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchTransfers(context.Background())
+	_, err := FetchTransfers(context.Background(), client)
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}
@@ -244,77 +246,20 @@ func TestFetchTransfersByYearHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Hour),
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
 	)
 
-	_, err := client.FetchTransfersByYear(context.Background(), 2026)
+	_, err := FetchTransfersByYear(context.Background(), client, 2026)
 	if err == nil {
 		t.Error("expected error for HTTP 500")
 	}
 }
 
-func TestGetTransfersWithCache(t *testing.T) {
-	client := NewClient(WithCacheTTL(1 * time.Hour))
-	data := &TransfersResult{
-		Metadata:  TransfersMetadata{Producer: "APNIC"},
-		Transfers: []TransferRecord{{Type: "RESOURCE_TRANSFER"}},
-	}
-	client.cache.set(cacheKeyTransfers, data)
-
-	result, err := client.GetTransfers(context.Background())
-	if err != nil {
-		t.Fatalf("GetTransfers() error: %v", err)
-	}
-	if len(result.Transfers) != 1 {
-		t.Errorf("transfers count = %d, want 1", len(result.Transfers))
-	}
-}
-
-func TestGetTransfersFetchPath(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(sampleTransfersJSON))
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	result, err := client.GetTransfers(context.Background())
-	if err != nil {
-		t.Fatalf("GetTransfers() error: %v", err)
-	}
-	if len(result.Transfers) != 2 {
-		t.Errorf("transfers count = %d, want 2", len(result.Transfers))
-	}
-}
-
-func TestGetTransfersFetchError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := NewClient(
-		WithHTTPClient(server.Client()),
-		WithStatsBaseURL(server.URL+"/"),
-		WithCacheTTL(1*time.Nanosecond),
-	)
-
-	_, err := client.GetTransfers(context.Background())
-	if err == nil {
-		t.Error("expected error for fetch failure in GetTransfers")
-	}
-}
-
 func TestParseTransfersAll(t *testing.T) {
-	r, err := parseTransfersAll(sampleTransfersAll)
+	r, err := parseTransfersAll(testutil.SampleTransfersAll)
 	if err != nil {
 		t.Fatalf("parseTransfersAll() error: %v", err)
 	}
@@ -364,7 +309,7 @@ asn|45745|Gambit Group Pty Ltd|AU|APNIC|20090417|Bathurst One Pty Limited|AU|APN
 func TestFetchTransfersAll(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, ".md5") {
-			w.Write([]byte(sampleTransfersAllMD5))
+			w.Write([]byte(testutil.SampleTransfersAllMD5))
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, ".asc") {
@@ -372,12 +317,12 @@ func TestFetchTransfersAll(t *testing.T) {
 			return
 		}
 		// transfer-all-apnic-latest and per-year archives.
-		w.Write([]byte(sampleTransfersAll))
+		w.Write([]byte(testutil.SampleTransfersAll))
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithFTPBaseURL(srv.URL+"/"), WithJitter(0, 0))
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithFTPBaseURL(srv.URL+"/"), transport.WithJitter(0, 0))
 
-	r, err := client.FetchTransfersAll(context.Background(), "")
+	r, err := FetchTransfersAll(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchTransfersAll() error: %v", err)
 	}
@@ -386,7 +331,7 @@ func TestFetchTransfersAll(t *testing.T) {
 	}
 
 	// By date archive.
-	ry, err := client.FetchTransfersAll(context.Background(), "20200615")
+	ry, err := FetchTransfersAll(context.Background(), client, "20200615")
 	if err != nil {
 		t.Fatalf("FetchTransfersAll(date) error: %v", err)
 	}
@@ -394,7 +339,7 @@ func TestFetchTransfersAll(t *testing.T) {
 		t.Errorf("date records = %d, want 3", len(ry.Records))
 	}
 
-	md5, err := client.FetchTransfersAllMD5(context.Background(), "")
+	md5, err := FetchTransfersAllMD5(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchTransfersAllMD5() error: %v", err)
 	}
@@ -402,7 +347,7 @@ func TestFetchTransfersAll(t *testing.T) {
 		t.Errorf("md5 = %q", md5)
 	}
 
-	asc, err := client.FetchTransfersAllASC(context.Background(), "")
+	asc, err := FetchTransfersAllASC(context.Background(), client, "")
 	if err != nil {
 		t.Fatalf("FetchTransfersAllASC() error: %v", err)
 	}
@@ -416,14 +361,14 @@ func TestFetchTransfersAllHTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	client := NewClient(WithHTTPClient(srv.Client()), WithFTPBaseURL(srv.URL+"/"), WithJitter(0, 0))
-	if _, err := client.FetchTransfersAll(context.Background(), ""); err == nil {
+	client := transport.NewClient(transport.WithHTTPClient(srv.Client()), transport.WithFTPBaseURL(srv.URL+"/"), transport.WithJitter(0, 0))
+	if _, err := FetchTransfersAll(context.Background(), client, ""); err == nil {
 		t.Error("expected error on HTTP 500")
 	}
-	if _, err := client.FetchTransfersAllMD5(context.Background(), ""); err == nil {
+	if _, err := FetchTransfersAllMD5(context.Background(), client, ""); err == nil {
 		t.Error("expected error on HTTP 500 for md5")
 	}
-	if _, err := client.FetchTransfersAllASC(context.Background(), ""); err == nil {
+	if _, err := FetchTransfersAllASC(context.Background(), client, ""); err == nil {
 		t.Error("expected error on HTTP 500 for asc")
 	}
 }

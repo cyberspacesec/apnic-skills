@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/cyberspacesec/apnic-skills/internal/testutil"
 )
 
 func TestDelegatedEntry(t *testing.T) {
@@ -42,8 +44,8 @@ func TestDelegatedExtendedEntry(t *testing.T) {
 
 func TestTransferRecord(t *testing.T) {
 	r := TransferRecord{
-		Type:       "RESOURCE_TRANSFER",
-		SourceRIR:  "APNIC",
+		Type:      "RESOURCE_TRANSFER",
+		SourceRIR: "APNIC",
 		IPv4Nets: &TransferNetSet{TransferSet: []NetRange{
 			{StartAddress: "1.2.3.0", EndAddress: "1.2.3.255"},
 		}},
@@ -100,7 +102,7 @@ func TestStatsFileHeader(t *testing.T) {
 
 func TestRDAPNetworkJSON(t *testing.T) {
 	var network RDAPNetwork
-	err := json.Unmarshal([]byte(sampleRDAPNetworkJSON), &network)
+	err := json.Unmarshal([]byte(testutil.SampleRDAPNetworkJSON), &network)
 	if err != nil {
 		t.Fatalf("JSON unmarshal error: %v", err)
 	}
@@ -123,7 +125,7 @@ func TestRDAPNetworkJSON(t *testing.T) {
 
 func TestRDAPAutnumJSON(t *testing.T) {
 	var autnum RDAPAutnum
-	err := json.Unmarshal([]byte(sampleRDAPAutnumJSON), &autnum)
+	err := json.Unmarshal([]byte(testutil.SampleRDAPAutnumJSON), &autnum)
 	if err != nil {
 		t.Fatalf("JSON unmarshal error: %v", err)
 	}
@@ -137,7 +139,7 @@ func TestRDAPAutnumJSON(t *testing.T) {
 
 func TestRDAPDomainJSON(t *testing.T) {
 	var domain RDAPDomain
-	err := json.Unmarshal([]byte(sampleRDAPDomainJSON), &domain)
+	err := json.Unmarshal([]byte(testutil.SampleRDAPDomainJSON), &domain)
 	if err != nil {
 		t.Fatalf("JSON unmarshal error: %v", err)
 	}
@@ -151,7 +153,7 @@ func TestRDAPDomainJSON(t *testing.T) {
 
 func TestRDAPEntityJSON(t *testing.T) {
 	var entity RDAPEntity
-	err := json.Unmarshal([]byte(sampleRDAPEntityJSON), &entity)
+	err := json.Unmarshal([]byte(testutil.SampleRDAPEntityJSON), &entity)
 	if err != nil {
 		t.Fatalf("JSON unmarshal error: %v", err)
 	}
@@ -168,7 +170,7 @@ func TestRDAPEntityJSON(t *testing.T) {
 
 func TestRDAPErrorJSON(t *testing.T) {
 	var rdapErr RDAPError
-	err := json.Unmarshal([]byte(sampleRDAPNotFoundJSON), &rdapErr)
+	err := json.Unmarshal([]byte(testutil.SampleRDAPNotFoundJSON), &rdapErr)
 	if err != nil {
 		t.Fatalf("JSON unmarshal error: %v", err)
 	}
@@ -182,7 +184,7 @@ func TestRDAPErrorJSON(t *testing.T) {
 
 func TestRDAPSearchResultJSON(t *testing.T) {
 	var result RDAPSearchResult
-	err := json.Unmarshal([]byte(sampleRDAPSearchJSON), &result)
+	err := json.Unmarshal([]byte(testutil.SampleRDAPSearchJSON), &result)
 	if err != nil {
 		t.Fatalf("JSON unmarshal error: %v", err)
 	}

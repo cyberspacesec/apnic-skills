@@ -84,15 +84,15 @@ func parseTransfersAll(data string) (*models.TransfersAllResult, error) {
 			continue
 		}
 		rec := models.TransferAllRecord{
-			ResourceType:      parts[0],
-			Resource:          parts[1],
-			FromOrganisation:  parts[2],
-			FromEconomy:       parts[3],
-			FromRIR:           parts[4],
-			ToOrganisation:    parts[6],
-			ToEconomy:         parts[7],
-			ToRIR:             parts[8],
-			TransferType:      parts[10],
+			ResourceType:     parts[0],
+			Resource:         parts[1],
+			FromOrganisation: parts[2],
+			FromEconomy:      parts[3],
+			FromRIR:          parts[4],
+			ToOrganisation:   parts[6],
+			ToEconomy:        parts[7],
+			ToRIR:            parts[8],
+			TransferType:     parts[10],
 		}
 		if t, err := time.Parse("20060102", parts[5]); err == nil {
 			rec.PreviousDelegationDate = t
@@ -126,8 +126,8 @@ type transferJSON struct {
 	Type                  string              `json:"type"`
 	SourceRIR             string              `json:"source_rir"`
 	RecipientRIR          string              `json:"recipient_rir"`
-	SourceOrganization    *orgJSON           `json:"source_organization"`
-	RecipientOrganization *orgJSON           `json:"recipient_organization"`
+	SourceOrganization    *orgJSON            `json:"source_organization"`
+	RecipientOrganization *orgJSON            `json:"recipient_organization"`
 	IPv4Nets              *transferNetSetJSON `json:"ip4nets"`
 	IPv6Nets              *transferNetSetJSON `json:"ip6nets"`
 	ASNs                  *transferASNSetJSON `json:"asns"`

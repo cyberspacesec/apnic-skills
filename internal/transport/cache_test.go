@@ -99,12 +99,12 @@ func TestCacheConcurrency(t *testing.T) {
 
 func TestCacheKeyConstants(t *testing.T) {
 	keys := []string{
-		cacheKeyDelegated,
-		cacheKeyExtended,
-		cacheKeyAssigned,
-		cacheKeyLegacy,
-		cacheKeyTransfers,
-		cacheKeyChanges,
+		CacheKeyDelegated,
+		CacheKeyExtended,
+		CacheKeyAssigned,
+		CacheKeyLegacy,
+		CacheKeyTransfers,
+		CacheKeyChanges,
 	}
 	for _, key := range keys {
 		if key == "" {
