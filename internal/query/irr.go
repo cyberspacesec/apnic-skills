@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 // IRRObjectTypes lists every APNIC IRR (RPSL) database object type published as
@@ -45,14 +48,14 @@ func isIRRObjectType(t string) bool {
 
 // FetchIRRDatabase fetches and parses an APNIC IRR database dump for the given
 // object type (one of IRRObjectTypes). The dump is gzip-compressed and is
-// transparently decompressed by fetchText. objType must be a known type,
+// transparently decompressed by FetchText. objType must be a known type,
 // otherwise ErrInvalidArgument is returned.
-func (c *Client) FetchIRRDatabase(ctx context.Context, objType string) (*IRRDatabase, error) {
+func FetchIRRDatabase(ctx context.Context, c *transport.Client, objType string) (*models.IRRDatabase, error) {
 	if !isIRRObjectType(objType) {
-		return nil, fmt.Errorf("%w: %q", ErrInvalidIRRType, objType)
+		return nil, fmt.Errorf("%w: %q", transport.ErrInvalidIRRType, objType)
 	}
-	url := buildIRRDBURL(c.ftpBaseURL, objType)
-	body, err := c.fetchTextStr(ctx, url)
+	url := transport.BuildIRRDBURL(c.FTPBaseURL(), objType)
+	body, err := c.FetchTextStr(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -61,9 +64,9 @@ func (c *Client) FetchIRRDatabase(ctx context.Context, objType string) (*IRRData
 
 // FetchIRRCurrentSerial fetches the APNIC.CURRENTSERIAL value, which is the
 // current serial number of the APNIC IRR database. It is returned as an integer.
-func (c *Client) FetchIRRCurrentSerial(ctx context.Context) (int64, error) {
-	url := buildIRRCurrentSerialURL(c.ftpBaseURL)
-	body, err := c.fetchText(ctx, url)
+func FetchIRRCurrentSerial(ctx context.Context, c *transport.Client) (int64, error) {
+	url := transport.BuildIRRCurrentSerialURL(c.FTPBaseURL())
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return 0, err
 	}
@@ -83,13 +86,13 @@ func (c *Client) FetchIRRCurrentSerial(ctx context.Context) (int64, error) {
 // This parser is independent of ParseWhoisResponse: IRR dumps use the same RPSL
 // syntax but are bulk multi-object files, whereas whois responses are typically
 // single objects with a different surrounding format.
-func parseIRRDatabase(objType, data string) (*IRRDatabase, error) {
-	db := &IRRDatabase{Type: objType, Objects: make([]IRRObject, 0, 1024)}
+func parseIRRDatabase(objType, data string) (*models.IRRDatabase, error) {
+	db := &models.IRRDatabase{Type: objType, Objects: make([]models.IRRObject, 0, 1024)}
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024) // RPSL lines can be long
 
 	var (
-		cur     *IRRObject
+		cur     *models.IRRObject
 		lastKey string
 	)
 
@@ -143,7 +146,7 @@ func parseIRRDatabase(objType, data string) (*IRRDatabase, error) {
 
 		if cur == nil {
 			// Start a new object.
-			cur = &IRRObject{
+			cur = &models.IRRObject{
 				Type:       key,
 				PrimaryKey: val,
 				Attributes: map[string][]string{},

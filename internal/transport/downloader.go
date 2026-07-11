@@ -39,16 +39,16 @@ const defaultTargetChunkSize int64 = 2 * 1024 * 1024
 // chunkRange is an inclusive [start, end] byte range within a file.
 type chunkRange struct{ start, end int64 }
 
-// fetchReader returns a streaming, decompressed io.Reader for the content at
+// FetchReader returns a streaming, decompressed io.Reader for the content at
 // url. When the server advertises Accept-Ranges and the file is large enough,
 // it downloads the file as parallel Range requests and merges them into the
 // returned reader; otherwise it falls back to a single GET. The reader is
 // gzip-decompressed when the URL ends in .gz or the response carries
 // Content-Encoding: gzip.
 //
-// All HTTP requests (probe + each chunk) go through doHTTPRequest, so stealth
+// All HTTP requests (probe + each chunk) go through DoHTTPRequest, so stealth
 // headers, rate-limiting and jitter apply uniformly.
-func (c *Client) fetchReader(ctx context.Context, url string) (io.Reader, error) {
+func (c *Client) FetchReader(ctx context.Context, url string) (io.Reader, error) {
 	if c.downloadCfg.maxConcurrent > 1 {
 		r, err := c.downloadChunked(ctx, url)
 		if err != errChunkingUnsupported {
@@ -60,10 +60,10 @@ func (c *Client) fetchReader(ctx context.Context, url string) (io.Reader, error)
 	return c.singleStream(ctx, url)
 }
 
-// fetchTextStr returns the full decompressed body at url as a string. It is the
-// string-oriented counterpart to fetchReader for parsers that consume a string.
-func (c *Client) fetchTextStr(ctx context.Context, url string) (string, error) {
-	r, err := c.fetchReader(ctx, url)
+// FetchTextStr returns the full decompressed body at url as a string. It is the
+// string-oriented counterpart to FetchReader for parsers that consume a string.
+func (c *Client) FetchTextStr(ctx context.Context, url string) (string, error) {
+	r, err := c.FetchReader(ctx, url)
 	if err != nil {
 		return "", err
 	}
@@ -184,7 +184,7 @@ func (c *Client) effectiveConcurrency(chunks int) int {
 func (c *Client) probeRange(ctx context.Context, url string) (total int64, supportsRange bool, gzipped bool, err error) {
 	hdr := http.Header{}
 	hdr.Set("Range", "bytes=0-0")
-	resp, err := c.doHTTPRequest(ctx, "GET", url, "text/plain, */*", hdr)
+	resp, err := c.DoHTTPRequest(ctx, "GET", url, "text/plain, */*", hdr)
 	if err != nil {
 		return 0, false, false, fmt.Errorf("range probe failed: %w", err)
 	}
@@ -298,7 +298,7 @@ func (c *Client) fetchChunkRaw(ctx context.Context, url string, r chunkRange, re
 		// cancel must fire only AFTER the body is fully read; calling it
 		// immediately after Do returns would abort the in-flight io.ReadAll
 		// with "context canceled". Defer it to body-drain completion.
-		resp, err := c.doHTTPRequest(chunkCtx, "GET", url, "text/plain, */*", hdr)
+		resp, err := c.DoHTTPRequest(chunkCtx, "GET", url, "text/plain, */*", hdr)
 		if err != nil {
 			if cancel != nil {
 				cancel()
@@ -386,7 +386,7 @@ func planChunks(total int64, cfg downloadConfig) []chunkRange {
 // files below the chunking threshold. Unlike fetchText it does not buffer the
 // whole body into a string.
 func (c *Client) singleStream(ctx context.Context, url string) (io.Reader, error) {
-	resp, err := c.doHTTPRequest(ctx, "GET", url, "text/plain")
+	resp, err := c.DoHTTPRequest(ctx, "GET", url, "text/plain")
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}

@@ -1,7 +1,6 @@
 package transport
 
 import (
-	"context"
 	"sync"
 	"time"
 )
@@ -51,138 +50,34 @@ func (c *cache) set(key string, data interface{}) {
 
 // Cache key constants for different data types.
 const (
-	cacheKeyDelegated      = "delegated"
-	cacheKeyExtended       = "extended"
-	cacheKeyAssigned       = "assigned"
-	cacheKeyIPv6Assigned   = "ipv6-assigned"
-	cacheKeyLegacy         = "legacy"
-	cacheKeyTransfers      = "transfers"
-	cacheKeyChanges        = "changes"
+	CacheKeyDelegated    = "delegated"
+	CacheKeyExtended     = "extended"
+	CacheKeyAssigned     = "assigned"
+	CacheKeyIPv6Assigned = "ipv6-assigned"
+	CacheKeyLegacy       = "legacy"
+	CacheKeyTransfers    = "transfers"
+	CacheKeyChanges      = "changes"
 )
 
-// cacheKeyIRR returns the cache key for an IRR database of the given object type.
-func cacheKeyIRR(objType string) string {
+// CacheKeyIRR returns the cache key for an IRR database of the given object type.
+func CacheKeyIRR(objType string) string {
 	return "irr:" + objType
 }
 
-// GetDelegatedEntries returns cached delegated entries, fetching fresh data if expired.
-func (c *Client) GetDelegatedEntries(ctx context.Context) ([]DelegatedEntry, error) {
-	if data, ok := c.cache.get(cacheKeyDelegated); ok {
-		return data.([]DelegatedEntry), nil
+// CacheGet retrieves data from the client's cache if it exists and has not
+// expired. It is the exported accessor used by the root-package caching layer
+// (the cache type itself is unexported, so subpackages cannot reach into it).
+func (c *Client) CacheGet(key string) (interface{}, bool) {
+	if c.cache == nil {
+		return nil, false
 	}
-
-	entries, err := c.FetchDelegatedEntries(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.cache.set(cacheKeyDelegated, entries)
-	return entries, nil
+	return c.cache.get(key)
 }
 
-// GetExtendedEntries returns cached extended delegated entries, fetching fresh data if expired.
-func (c *Client) GetExtendedEntries(ctx context.Context) ([]DelegatedExtendedEntry, error) {
-	if data, ok := c.cache.get(cacheKeyExtended); ok {
-		return data.([]DelegatedExtendedEntry), nil
+// CacheSet stores data in the client's cache with the current timestamp.
+func (c *Client) CacheSet(key string, data interface{}) {
+	if c.cache == nil {
+		return
 	}
-
-	result, err := c.FetchExtendedEntries(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.cache.set(cacheKeyExtended, result.Entries)
-	return result.Entries, nil
-}
-
-// GetAssignedEntries returns cached assigned entries, fetching fresh data if expired.
-func (c *Client) GetAssignedEntries(ctx context.Context) ([]AssignedEntry, error) {
-	if data, ok := c.cache.get(cacheKeyAssigned); ok {
-		return data.([]AssignedEntry), nil
-	}
-
-	result, err := c.FetchAssignedEntries(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.cache.set(cacheKeyAssigned, result.Entries)
-	return result.Entries, nil
-}
-
-// GetIPv6AssignedEntries returns cached IPv6 assigned entries, fetching fresh data if expired.
-func (c *Client) GetIPv6AssignedEntries(ctx context.Context) ([]IPv6AssignedEntry, error) {
-	if data, ok := c.cache.get(cacheKeyIPv6Assigned); ok {
-		return data.([]IPv6AssignedEntry), nil
-	}
-
-	entries, err := c.FetchIPv6AssignedEntries(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.cache.set(cacheKeyIPv6Assigned, entries)
-	return entries, nil
-}
-
-// GetLegacyEntries returns cached legacy entries, fetching fresh data if expired.
-func (c *Client) GetLegacyEntries(ctx context.Context) ([]LegacyEntry, error) {
-	if data, ok := c.cache.get(cacheKeyLegacy); ok {
-		return data.([]LegacyEntry), nil
-	}
-
-	result, err := c.FetchLegacyEntries(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.cache.set(cacheKeyLegacy, result.Entries)
-	return result.Entries, nil
-}
-
-// GetTransfers returns cached transfer records, fetching fresh data if expired.
-func (c *Client) GetTransfers(ctx context.Context) (*TransfersResult, error) {
-	if data, ok := c.cache.get(cacheKeyTransfers); ok {
-		return data.(*TransfersResult), nil
-	}
-
-	result, err := c.FetchTransfers(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.cache.set(cacheKeyTransfers, result)
-	return result, nil
-}
-
-// GetChanges returns cached change records, fetching fresh data if expired.
-func (c *Client) GetChanges(ctx context.Context) (*ChangesResult, error) {
-	if data, ok := c.cache.get(cacheKeyChanges); ok {
-		return data.(*ChangesResult), nil
-	}
-
-	result, err := c.FetchChanges(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c.cache.set(cacheKeyChanges, result)
-	return result, nil
-}
-
-// GetIRRDatabase returns a cached IRR database for the given object type,
-// fetching fresh data if expired or absent. objType must be a known IRR object
-// type (see IRRObjectTypes).
-func (c *Client) GetIRRDatabase(ctx context.Context, objType string) (*IRRDatabase, error) {
-	if data, ok := c.cache.get(cacheKeyIRR(objType)); ok {
-		return data.(*IRRDatabase), nil
-	}
-
-	result, err := c.FetchIRRDatabase(ctx, objType)
-	if err != nil {
-		return nil, err
-	}
-
-	c.cache.set(cacheKeyIRR(objType), result)
-	return result, nil
+	c.cache.set(key, data)
 }

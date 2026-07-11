@@ -9,18 +9,21 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 // QueryWhois performs a raw Whois query against the APNIC Whois server.
 // Returns the raw Whois response text.
-func (c *Client) QueryWhois(ctx context.Context, query string) (string, error) {
-	return c.queryWhois(ctx, query)
+func QueryWhois(ctx context.Context, c *transport.Client, query string) (string, error) {
+	return queryWhois(ctx, c, query)
 }
 
 // QueryWhoisIP performs a Whois query for an IP address.
 // This is a convenience method that queries and parses the result.
-func (c *Client) QueryWhoisIP(ctx context.Context, ip string) (*WhoisInfo, error) {
-	raw, err := c.queryWhois(ctx, ip)
+func QueryWhoisIP(ctx context.Context, c *transport.Client, ip string) (*models.WhoisInfo, error) {
+	raw, err := queryWhois(ctx, c, ip)
 	if err != nil {
 		return nil, err
 	}
@@ -30,9 +33,9 @@ func (c *Client) QueryWhoisIP(ctx context.Context, ip string) (*WhoisInfo, error
 
 // QueryWhoisASN performs a Whois query for an Autonomous System Number.
 // asn should be a plain number (e.g. 13335), not "AS13335".
-func (c *Client) QueryWhoisASN(ctx context.Context, asn int64) (*WhoisInfo, error) {
+func QueryWhoisASN(ctx context.Context, c *transport.Client, asn int64) (*models.WhoisInfo, error) {
 	query := fmt.Sprintf("AS%d", asn)
-	raw, err := c.queryWhois(ctx, query)
+	raw, err := queryWhois(ctx, c, query)
 	if err != nil {
 		return nil, err
 	}
@@ -42,31 +45,31 @@ func (c *Client) QueryWhoisASN(ctx context.Context, asn int64) (*WhoisInfo, erro
 
 // QueryWhoisWithFlags performs a Whois query with additional flags.
 // Common flags: "B" (brief), "r" (no recursion), "l" (one level less specific).
-func (c *Client) QueryWhoisWithFlags(ctx context.Context, query string, flags string) (string, error) {
+func QueryWhoisWithFlags(ctx context.Context, c *transport.Client, query string, flags string) (string, error) {
 	if flags != "" {
 		query = flags + " " + query
 	}
-	return c.queryWhois(ctx, query)
+	return queryWhois(ctx, c, query)
 }
 
 // queryWhois performs the actual TCP Whois query.
-func (c *Client) queryWhois(ctx context.Context, query string) (string, error) {
+func queryWhois(ctx context.Context, c *transport.Client, query string) (string, error) {
 	// Apply the same anti-scraping pacing to whois as to HTTP so high-frequency
 	// whois queries don't trip rate limits. Whois has no browser headers (it is
 	// a plain TCP protocol), but jitter + rate limiting still apply.
-	if err := c.waitRateLimit(ctx); err != nil {
+	if err := c.WaitRateLimit(ctx); err != nil {
 		return "", err
 	}
-	c.jitter(ctx)
+	c.Jitter(ctx)
 
 	var conn net.Conn
 	var err error
 
-	if c.dialWhois != nil {
-		conn, err = c.dialWhois(ctx, "tcp", c.whoisServer)
+	if d := c.DialWhois(); d != nil {
+		conn, err = d(ctx, "tcp", c.WhoisServer())
 	} else {
-		d := net.Dialer{Timeout: c.whoisTimeout}
-		conn, err = d.DialContext(ctx, "tcp", c.whoisServer)
+		dialer := net.Dialer{Timeout: c.WhoisTimeout()}
+		conn, err = dialer.DialContext(ctx, "tcp", c.WhoisServer())
 	}
 	if err != nil {
 		return "", fmt.Errorf("connection failed: %w", err)
@@ -93,8 +96,8 @@ func (c *Client) queryWhois(ctx context.Context, query string) (string, error) {
 
 // ParseWhoisResponse parses a raw Whois response into a structured WhoisInfo.
 // It extracts network, CIDR, country, organization, parent, and date information.
-func ParseWhoisResponse(response string) WhoisInfo {
-	info := WhoisInfo{}
+func ParseWhoisResponse(response string) models.WhoisInfo {
+	info := models.WhoisInfo{}
 	scanner := bufio.NewScanner(strings.NewReader(response))
 
 	for scanner.Scan() {

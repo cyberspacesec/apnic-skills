@@ -1,20 +1,24 @@
 package filter
 
-import "time"
+import (
+	"time"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+)
 
 // EntryFilter provides a chainable filter API for DelegatedEntry slices.
 type EntryFilter struct {
-	entries []DelegatedEntry
+	entries []models.DelegatedEntry
 }
 
 // NewFilter creates a new EntryFilter with the given entries.
-func NewFilter(entries []DelegatedEntry) *EntryFilter {
+func NewFilter(entries []models.DelegatedEntry) *EntryFilter {
 	return &EntryFilter{entries: entries}
 }
 
 // ByCountry filters entries by ISO 3166 country code.
 func (f *EntryFilter) ByCountry(country string) *EntryFilter {
-	result := make([]DelegatedEntry, 0, len(f.entries))
+	result := make([]models.DelegatedEntry, 0, len(f.entries))
 	for _, e := range f.entries {
 		if e.Country == country {
 			result = append(result, e)
@@ -26,7 +30,7 @@ func (f *EntryFilter) ByCountry(country string) *EntryFilter {
 
 // ByType filters entries by resource type (ipv4, ipv6, asn).
 func (f *EntryFilter) ByType(resType string) *EntryFilter {
-	result := make([]DelegatedEntry, 0, len(f.entries))
+	result := make([]models.DelegatedEntry, 0, len(f.entries))
 	for _, e := range f.entries {
 		if e.Type == resType {
 			result = append(result, e)
@@ -38,7 +42,7 @@ func (f *EntryFilter) ByType(resType string) *EntryFilter {
 
 // ByStatus filters entries by status (allocated, assigned, reserved, available).
 func (f *EntryFilter) ByStatus(status string) *EntryFilter {
-	result := make([]DelegatedEntry, 0, len(f.entries))
+	result := make([]models.DelegatedEntry, 0, len(f.entries))
 	for _, e := range f.entries {
 		if e.Status == status {
 			result = append(result, e)
@@ -50,7 +54,7 @@ func (f *EntryFilter) ByStatus(status string) *EntryFilter {
 
 // ByDateRange filters entries by date range (inclusive on both ends).
 func (f *EntryFilter) ByDateRange(start, end time.Time) *EntryFilter {
-	result := make([]DelegatedEntry, 0, len(f.entries))
+	result := make([]models.DelegatedEntry, 0, len(f.entries))
 	for _, e := range f.entries {
 		if e.Date.IsZero() {
 			continue
@@ -69,7 +73,7 @@ func (f *EntryFilter) ByDateRange(start, end time.Time) *EntryFilter {
 
 // ByRegistry filters entries by registry name.
 func (f *EntryFilter) ByRegistry(registry string) *EntryFilter {
-	result := make([]DelegatedEntry, 0, len(f.entries))
+	result := make([]models.DelegatedEntry, 0, len(f.entries))
 	for _, e := range f.entries {
 		if e.Registry == registry {
 			result = append(result, e)
@@ -80,7 +84,7 @@ func (f *EntryFilter) ByRegistry(registry string) *EntryFilter {
 }
 
 // Result returns the filtered entries.
-func (f *EntryFilter) Result() []DelegatedEntry {
+func (f *EntryFilter) Result() []models.DelegatedEntry {
 	return f.entries
 }
 
@@ -91,17 +95,17 @@ func (f *EntryFilter) Count() int {
 
 // ExtendedEntryFilter provides a chainable filter API for DelegatedExtendedEntry slices.
 type ExtendedEntryFilter struct {
-	entries []DelegatedExtendedEntry
+	entries []models.DelegatedExtendedEntry
 }
 
 // NewExtendedFilter creates a new ExtendedEntryFilter with the given entries.
-func NewExtendedFilter(entries []DelegatedExtendedEntry) *ExtendedEntryFilter {
+func NewExtendedFilter(entries []models.DelegatedExtendedEntry) *ExtendedEntryFilter {
 	return &ExtendedEntryFilter{entries: entries}
 }
 
 // ByCountry filters entries by ISO 3166 country code.
 func (f *ExtendedEntryFilter) ByCountry(country string) *ExtendedEntryFilter {
-	result := make([]DelegatedExtendedEntry, 0, len(f.entries))
+	result := make([]models.DelegatedExtendedEntry, 0, len(f.entries))
 	for _, e := range f.entries {
 		if e.Country == country {
 			result = append(result, e)
@@ -113,7 +117,7 @@ func (f *ExtendedEntryFilter) ByCountry(country string) *ExtendedEntryFilter {
 
 // ByType filters entries by resource type (ipv4, ipv6, asn).
 func (f *ExtendedEntryFilter) ByType(resType string) *ExtendedEntryFilter {
-	result := make([]DelegatedExtendedEntry, 0, len(f.entries))
+	result := make([]models.DelegatedExtendedEntry, 0, len(f.entries))
 	for _, e := range f.entries {
 		if e.Type == resType {
 			result = append(result, e)
@@ -125,7 +129,7 @@ func (f *ExtendedEntryFilter) ByType(resType string) *ExtendedEntryFilter {
 
 // ByStatus filters entries by status.
 func (f *ExtendedEntryFilter) ByStatus(status string) *ExtendedEntryFilter {
-	result := make([]DelegatedExtendedEntry, 0, len(f.entries))
+	result := make([]models.DelegatedExtendedEntry, 0, len(f.entries))
 	for _, e := range f.entries {
 		if e.Status == status {
 			result = append(result, e)
@@ -137,7 +141,7 @@ func (f *ExtendedEntryFilter) ByStatus(status string) *ExtendedEntryFilter {
 
 // ByOpaqueID filters entries by opaque-id (organization identifier).
 func (f *ExtendedEntryFilter) ByOpaqueID(opaqueID string) *ExtendedEntryFilter {
-	result := make([]DelegatedExtendedEntry, 0, len(f.entries))
+	result := make([]models.DelegatedExtendedEntry, 0, len(f.entries))
 	for _, e := range f.entries {
 		if e.OpaqueID == opaqueID {
 			result = append(result, e)
@@ -149,7 +153,7 @@ func (f *ExtendedEntryFilter) ByOpaqueID(opaqueID string) *ExtendedEntryFilter {
 
 // ByDateRange filters entries by date range (inclusive on both ends).
 func (f *ExtendedEntryFilter) ByDateRange(start, end time.Time) *ExtendedEntryFilter {
-	result := make([]DelegatedExtendedEntry, 0, len(f.entries))
+	result := make([]models.DelegatedExtendedEntry, 0, len(f.entries))
 	for _, e := range f.entries {
 		if e.Date.IsZero() {
 			continue
@@ -167,7 +171,7 @@ func (f *ExtendedEntryFilter) ByDateRange(start, end time.Time) *ExtendedEntryFi
 }
 
 // Result returns the filtered entries.
-func (f *ExtendedEntryFilter) Result() []DelegatedExtendedEntry {
+func (f *ExtendedEntryFilter) Result() []models.DelegatedExtendedEntry {
 	return f.entries
 }
 

@@ -9,14 +9,17 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 // FetchRRDPNotification fetches and parses the RRDP notification.xml from the
 // configured RRDP base URL. The notification identifies the current snapshot
 // and the recent deltas for incremental synchronisation.
-func (c *Client) FetchRRDPNotification(ctx context.Context) (*RRDPNotification, error) {
-	url := buildRRDPNotificationURL(c.rrdpBaseURL)
-	body, err := c.fetchText(ctx, url)
+func FetchRRDPNotification(ctx context.Context, c *transport.Client) (*models.RRDPNotification, error) {
+	url := transport.BuildRRDPNotificationURL(c.RRDPBaseURL())
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -29,8 +32,8 @@ func (c *Client) FetchRRDPNotification(ctx context.Context) (*RRDPNotification, 
 // stays bounded even for the multi-megabyte snapshot files. A gzip
 // Content-Encoding (the server applies it when the client advertises
 // Accept-Encoding: gzip) is transparently decompressed.
-func (c *Client) FetchRRDPSnapshot(ctx context.Context, uri string) (*RPKISnapshot, error) {
-	resp, err := c.doHTTPRequest(ctx, http.MethodGet, uri, "application/xml, text/xml")
+func FetchRRDPSnapshot(ctx context.Context, c *transport.Client, uri string) (*models.RPKISnapshot, error) {
+	resp, err := c.DoHTTPRequest(ctx, http.MethodGet, uri, "application/xml, text/xml")
 	if err != nil {
 		return nil, fmt.Errorf("RRDP snapshot request failed: %w", err)
 	}
@@ -53,18 +56,18 @@ func (c *Client) FetchRRDPSnapshot(ctx context.Context, uri string) (*RPKISnapsh
 // FetchRRDPDelta fetches and parses an RRDP delta.xml from the given URI. Deltas
 // share the snapshot format (<publish>/<withdraw> elements) but represent an
 // incremental update at a specific serial.
-func (c *Client) FetchRRDPDelta(ctx context.Context, uri string) (*RPKISnapshot, error) {
-	return c.FetchRRDPSnapshot(ctx, uri)
+func FetchRRDPDelta(ctx context.Context, c *transport.Client, uri string) (*models.RPKISnapshot, error) {
+	return FetchRRDPSnapshot(ctx, c, uri)
 }
 
 // rrdpNotificationXML is the wire model for RRDP notification.xml.
 type rrdpNotificationXML struct {
-	XMLName    xml.Name      `xml:"notification"`
-	Version    string        `xml:"version,attr"`
-	SessionID  string        `xml:"session_id,attr"`
-	Serial     string        `xml:"serial,attr"`
-	Snapshot   rrdpRefXML    `xml:"snapshot"`
-	Deltas     []rrdpRefXML  `xml:"delta"`
+	XMLName   xml.Name     `xml:"notification"`
+	Version   string       `xml:"version,attr"`
+	SessionID string       `xml:"session_id,attr"`
+	Serial    string       `xml:"serial,attr"`
+	Snapshot  rrdpRefXML   `xml:"snapshot"`
+	Deltas    []rrdpRefXML `xml:"delta"`
 }
 
 type rrdpRefXML struct {
@@ -74,15 +77,15 @@ type rrdpRefXML struct {
 }
 
 // parseRRDPNotification decodes an RRDP notification.xml stream.
-func parseRRDPNotification(r io.Reader) (*RRDPNotification, error) {
+func parseRRDPNotification(r io.Reader) (*models.RRDPNotification, error) {
 	var raw rrdpNotificationXML
 	if err := xml.NewDecoder(r).Decode(&raw); err != nil {
 		return nil, fmt.Errorf("RRDP notification XML decode failed: %w", err)
 	}
-	n := &RRDPNotification{
+	n := &models.RRDPNotification{
 		Version:   raw.Version,
 		SessionID: raw.SessionID,
-		Snapshot:  RRDPRef{URI: raw.Snapshot.URI, Hash: raw.Snapshot.Hash},
+		Snapshot:  models.RRDPRef{URI: raw.Snapshot.URI, Hash: raw.Snapshot.Hash},
 	}
 	if s, err := strconv.ParseInt(raw.Serial, 10, 64); err == nil {
 		n.Serial = s
@@ -90,9 +93,9 @@ func parseRRDPNotification(r io.Reader) (*RRDPNotification, error) {
 	if s, err := strconv.ParseInt(raw.Snapshot.Serial, 10, 64); err == nil {
 		n.Snapshot.Serial = s
 	}
-	n.Deltas = make([]RRDPRef, 0, len(raw.Deltas))
+	n.Deltas = make([]models.RRDPRef, 0, len(raw.Deltas))
 	for _, d := range raw.Deltas {
-		ref := RRDPRef{URI: d.URI, Hash: d.Hash}
+		ref := models.RRDPRef{URI: d.URI, Hash: d.Hash}
 		if s, err := strconv.ParseInt(d.Serial, 10, 64); err == nil {
 			ref.Serial = s
 		}
@@ -105,9 +108,9 @@ func parseRRDPNotification(r io.Reader) (*RRDPNotification, error) {
 // URIs of every <publish> and <withdraw> element, discarding the (large)
 // base64 CMS bodies to keep memory bounded. Element local names are matched
 // regardless of XML namespace.
-func parseRPKISnapshot(r io.Reader) (*RPKISnapshot, error) {
+func parseRPKISnapshot(r io.Reader) (*models.RPKISnapshot, error) {
 	dec := xml.NewDecoder(r)
-	snap := &RPKISnapshot{}
+	snap := &models.RPKISnapshot{}
 	for {
 		tok, err := dec.Token()
 		if err == io.EOF {

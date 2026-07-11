@@ -263,3 +263,43 @@ func WithDownloadTimeout(d time.Duration) Option {
 		c.downloadCfg.timeout = d
 	}
 }
+
+// --- Field accessors for subpackages ---
+// The Client fields are unexported; subpackages (stats/query/history) reach
+// them through these read-only accessors so the transport internals stay
+// encapsulated while still allowing the restructured subpackages to build URLs
+// and dial whois.
+
+// StatsBaseURL returns the configured stats/FTP base URL.
+func (c *Client) StatsBaseURL() string { return c.statsBaseURL }
+
+// FTPBaseURL returns the configured APNIC FTP root URL.
+func (c *Client) FTPBaseURL() string { return c.ftpBaseURL }
+
+// ThymeBaseURL returns the configured thyme base URL.
+func (c *Client) ThymeBaseURL() string { return c.thymeBaseURL }
+
+// ThymeSource returns the configured default thyme data source.
+func (c *Client) ThymeSource() string { return c.thymeSource }
+
+// RRDPBaseURL returns the configured RRDP base URL.
+func (c *Client) RRDPBaseURL() string { return c.rrdpBaseURL }
+
+// RDAPBaseURL returns the configured RDAP base URL.
+func (c *Client) RDAPBaseURL() string { return c.rdapBaseURL }
+
+// RDAPDate returns the configured point-in-time RDAP date (zero = live).
+func (c *Client) RDAPDate() time.Time { return c.rdapDate }
+
+// RExBaseURL returns the configured REx cross-RIR base URL.
+func (c *Client) RExBaseURL() string { return c.rexBaseURL }
+
+// WhoisServer returns the configured whois server address.
+func (c *Client) WhoisServer() string { return c.whoisServer }
+
+// WhoisTimeout returns the configured whois connection timeout.
+func (c *Client) WhoisTimeout() time.Duration { return c.whoisTimeout }
+
+// DialWhois returns the optional whois dial override (nil in production).
+func (c *Client) DialWhois() dialFunc { return c.dialWhois }
+

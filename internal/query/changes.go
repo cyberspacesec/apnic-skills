@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 // FetchChanges fetches the latest resource change records from APNIC.
-func (c *Client) FetchChanges(ctx context.Context) (*ChangesResult, error) {
-	url := c.statsBaseURL + "changes/changes_latest.json"
-	body, err := c.fetchText(ctx, url)
+func FetchChanges(ctx context.Context, c *transport.Client) (*models.ChangesResult, error) {
+	url := c.StatsBaseURL() + "changes/changes_latest.json"
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -21,9 +24,9 @@ func (c *Client) FetchChanges(ctx context.Context) (*ChangesResult, error) {
 
 // FetchChangesByDate fetches change records for a specific date.
 // date must be in YYYYMMDD format.
-func (c *Client) FetchChangesByDate(ctx context.Context, date string) (*ChangesResult, error) {
-	url := fmt.Sprintf("%schanges/%s/changes_%s.json", c.statsBaseURL, date[:4], date)
-	body, err := c.fetchText(ctx, url)
+func FetchChangesByDate(ctx context.Context, c *transport.Client, date string) (*models.ChangesResult, error) {
+	url := fmt.Sprintf("%schanges/%s/changes_%s.json", c.StatsBaseURL(), date[:4], date)
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -51,9 +54,9 @@ type changeRecordJSON struct {
 
 // parseChangesData parses the JSON Lines changes data.
 // The first line is metadata, subsequent lines are change records.
-func parseChangesData(data string) (*ChangesResult, error) {
-	result := &ChangesResult{
-		Changes: make([]ChangeRecord, 0),
+func parseChangesData(data string) (*models.ChangesResult, error) {
+	result := &models.ChangesResult{
+		Changes: make([]models.ChangeRecord, 0),
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(data))
@@ -70,9 +73,9 @@ func parseChangesData(data string) (*ChangesResult, error) {
 		if lineNum == 1 {
 			var meta changesMetadataJSON
 			if err := json.Unmarshal([]byte(line), &meta); err != nil {
-				return nil, fmt.Errorf("%w: metadata parse error: %v", ErrChangesParseFail, err)
+				return nil, fmt.Errorf("%w: metadata parse error: %v", transport.ErrChangesParseFail, err)
 			}
-			result.Metadata = ChangesMetadata{
+			result.Metadata = models.ChangesMetadata{
 				Count:      meta.Count,
 				StatsBegin: meta.StatsBegin,
 				StatsEnd:   meta.StatsEnd,
@@ -91,7 +94,7 @@ func parseChangesData(data string) (*ChangesResult, error) {
 			continue
 		}
 
-		record := ChangeRecord{
+		record := models.ChangeRecord{
 			Country:   rec.Country,
 			Custodian: rec.Custodian,
 			Resources: rec.Resources,

@@ -74,14 +74,14 @@ func (c *Client) applyBrowserHeaders(req *http.Request, accept string) {
 	req.Header.Set("Connection", "keep-alive")
 }
 
-// jitter sleeps for a random duration in [jitterMin, jitterMax) when stealth is
+// Jitter sleeps for a random duration in [jitterMin, jitterMax) when stealth is
 // enabled and the interval is positive. It returns immediately if ctx is
 // cancelled, so a long jitter never blocks a cancelled context.
 //
 // As a testing affordance, setting the APNIC_NO_JITTER environment variable to a
 // non-empty value disables jitter entirely. This lets the test suite run fast
 // without each test having to opt out. Production callers never set it.
-func (c *Client) jitter(ctx context.Context) {
+func (c *Client) Jitter(ctx context.Context) {
 	if !c.stealth || c.jitterMin <= 0 || c.jitterMax <= c.jitterMin {
 		return
 	}
@@ -96,25 +96,25 @@ func (c *Client) jitter(ctx context.Context) {
 	}
 }
 
-// waitRateLimit blocks until the global rate limiter allows a request, or ctx is
+// WaitRateLimit blocks until the global rate limiter allows a request, or ctx is
 // cancelled. No-op when no limiter is configured.
-func (c *Client) waitRateLimit(ctx context.Context) error {
+func (c *Client) WaitRateLimit(ctx context.Context) error {
 	if c.rateLimiter == nil {
 		return nil
 	}
 	return c.rateLimiter.wait(ctx)
 }
 
-// doHTTPRequest is the unified HTTP execution outlet for the SDK. It builds the
+// DoHTTPRequest is the unified HTTP execution outlet for the SDK. It builds the
 // request, applies browser-mimicry headers, waits for the rate limiter and
 // jitter, then performs the request. It does NOT read or decompress the body —
-// callers (fetchText, doRDAPRequestAt) retain their own body handling.
+// callers (FetchText, doRDAPRequestAt) retain their own body handling.
 //
 // All HTTP traffic from the SDK goes through this method, so stealth/rate-limit
 // behavior is applied consistently. The optional extra headers (e.g. Range) are
 // applied after the browser headers so callers can inject request-specific
 // headers without bypassing stealth.
-func (c *Client) doHTTPRequest(ctx context.Context, method, url, accept string, extra ...http.Header) (*http.Response, error) {
+func (c *Client) DoHTTPRequest(ctx context.Context, method, url, accept string, extra ...http.Header) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return nil, err
@@ -127,10 +127,10 @@ func (c *Client) doHTTPRequest(ctx context.Context, method, url, accept string, 
 			}
 		}
 	}
-	if err := c.waitRateLimit(ctx); err != nil {
+	if err := c.WaitRateLimit(ctx); err != nil {
 		return nil, err
 	}
-	c.jitter(ctx)
+	c.Jitter(ctx)
 	return c.httpClient.Do(req)
 }
 

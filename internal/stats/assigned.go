@@ -5,39 +5,42 @@ import (
 	"context"
 	"io"
 	"strings"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 // FetchAssignedEntries fetches the latest assigned stats from APNIC.
 // Assigned stats show aggregated assignment counts by prefix size per country.
-func (c *Client) FetchAssignedEntries(ctx context.Context) (*AssignedResult, error) {
-	return c.FetchAssignedResult(ctx, "")
+func FetchAssignedEntries(ctx context.Context, c *transport.Client) (*models.AssignedResult, error) {
+	return FetchAssignedResult(ctx, c, "")
 }
 
 // FetchAssignedEntriesByDate fetches assigned stats for a specific date.
 // date must be in YYYYMMDD format.
-func (c *Client) FetchAssignedEntriesByDate(ctx context.Context, date string) (*AssignedResult, error) {
-	return c.FetchAssignedResult(ctx, date)
+func FetchAssignedEntriesByDate(ctx context.Context, c *transport.Client, date string) (*models.AssignedResult, error) {
+	return FetchAssignedResult(ctx, c, date)
 }
 
 // FetchAssignedResult fetches and parses the full assigned stats result.
 // If date is empty, fetches the latest; otherwise fetches the specified date (YYYYMMDD).
-func (c *Client) FetchAssignedResult(ctx context.Context, date string) (*AssignedResult, error) {
-	url := buildStatsURL(c.statsBaseURL, "assigned", date)
-	r, err := c.fetchReader(ctx, url)
+func FetchAssignedResult(ctx context.Context, c *transport.Client, date string) (*models.AssignedResult, error) {
+	url := transport.BuildStatsURL(c.StatsBaseURL(), "assigned", date)
+	r, err := c.FetchReader(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	return parseAssignedFull(r)
+	return ParseAssignedFull(r)
 }
 
-// parseAssignedFull parses the complete assigned stats file.
+// ParseAssignedFull parses the complete assigned stats file.
 // Assigned format: registry|cc|type||prefix_size||status|||count
 // Example: apnic|ae|ipv4||4||assigned|||1
-func parseAssignedFull(r io.Reader) (*AssignedResult, error) {
+func ParseAssignedFull(r io.Reader) (*models.AssignedResult, error) {
 	scanner := bufio.NewScanner(r)
-	result := &AssignedResult{
-		Summaries: make([]StatsSummary, 0),
-		Entries:   make([]AssignedEntry, 0, 1000),
+	result := &models.AssignedResult{
+		Summaries: make([]models.StatsSummary, 0),
+		Entries:   make([]models.AssignedEntry, 0, 1000),
 	}
 
 	for scanner.Scan() {
@@ -47,8 +50,8 @@ func parseAssignedFull(r io.Reader) (*AssignedResult, error) {
 		}
 
 		// Parse header line
-		if isHeaderLine(line) {
-			header, err := parseStatsHeader(line)
+		if transport.IsHeaderLine(line) {
+			header, err := transport.ParseStatsHeader(line)
 			if err == nil {
 				result.Header = *header
 			}
@@ -56,8 +59,8 @@ func parseAssignedFull(r io.Reader) (*AssignedResult, error) {
 		}
 
 		// Parse summary line
-		if isSummaryLine(line) {
-			summary, err := parseSummaryLine(line)
+		if transport.IsSummaryLine(line) {
+			summary, err := transport.ParseSummaryLine(line)
 			if err == nil {
 				result.Summaries = append(result.Summaries, *summary)
 			}
@@ -76,11 +79,11 @@ func parseAssignedFull(r io.Reader) (*AssignedResult, error) {
 		}
 
 		var count int64
-		if parsed, err := parseIPv4Count(parts[8]); err == nil {
+		if parsed, err := transport.ParseIPv4Count(parts[8]); err == nil {
 			count = parsed
 		}
 
-		entry := AssignedEntry{
+		entry := models.AssignedEntry{
 			Registry: parts[0],
 			Country:  parts[1],
 			Type:     entryType,

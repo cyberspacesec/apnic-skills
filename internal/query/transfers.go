@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 // FetchTransfers fetches the latest IP/ASN transfer records from APNIC.
-func (c *Client) FetchTransfers(ctx context.Context) (*TransfersResult, error) {
-	url := c.statsBaseURL + "transfers/transfers_latest.json"
-	body, err := c.fetchText(ctx, url)
+func FetchTransfers(ctx context.Context, c *transport.Client) (*models.TransfersResult, error) {
+	url := c.StatsBaseURL() + "transfers/transfers_latest.json"
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -20,9 +23,9 @@ func (c *Client) FetchTransfers(ctx context.Context) (*TransfersResult, error) {
 }
 
 // FetchTransfersByYear fetches transfer records for a specific year.
-func (c *Client) FetchTransfersByYear(ctx context.Context, year int) (*TransfersResult, error) {
-	url := fmt.Sprintf("%stransfers/%d/transfer_log.jcr", c.statsBaseURL, year)
-	body, err := c.fetchText(ctx, url)
+func FetchTransfersByYear(ctx context.Context, c *transport.Client, year int) (*models.TransfersResult, error) {
+	url := fmt.Sprintf("%stransfers/%d/transfer_log.jcr", c.StatsBaseURL(), year)
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -34,9 +37,9 @@ func (c *Client) FetchTransfersByYear(ctx context.Context, year int) (*Transfers
 // JSON snapshot), this returns the historical pipe-delimited format.
 // date == "" fetches the latest cumulative file; a YYYYMMDD date fetches the
 // archived daily snapshot for that day.
-func (c *Client) FetchTransfersAll(ctx context.Context, date string) (*TransfersAllResult, error) {
-	url := buildTransfersAllURL(c.ftpBaseURL, date)
-	body, err := c.fetchTextStr(ctx, url)
+func FetchTransfersAll(ctx context.Context, c *transport.Client, date string) (*models.TransfersAllResult, error) {
+	url := transport.BuildTransfersAllURL(c.FTPBaseURL(), date)
+	body, err := c.FetchTextStr(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -44,26 +47,26 @@ func (c *Client) FetchTransfersAll(ctx context.Context, date string) (*Transfers
 }
 
 // FetchTransfersAllMD5 fetches the MD5 checksum for the cumulative transfers-all log.
-func (c *Client) FetchTransfersAllMD5(ctx context.Context, date string) (string, error) {
-	url := buildTransfersAllSidecarURL(c.ftpBaseURL, date, ".md5")
-	content, err := c.fetchText(ctx, url)
+func FetchTransfersAllMD5(ctx context.Context, c *transport.Client, date string) (string, error) {
+	url := transport.BuildTransfersAllSidecarURL(c.FTPBaseURL(), date, ".md5")
+	content, err := c.FetchText(ctx, url)
 	if err != nil {
 		return "", err
 	}
-	return parseMD5Checksum(content)
+	return transport.ParseMD5Checksum(content)
 }
 
 // FetchTransfersAllASC fetches the PGP signature (.asc) for the cumulative transfers-all log.
-func (c *Client) FetchTransfersAllASC(ctx context.Context, date string) (string, error) {
-	url := buildTransfersAllSidecarURL(c.ftpBaseURL, date, ".asc")
-	return c.fetchText(ctx, url)
+func FetchTransfersAllASC(ctx context.Context, c *transport.Client, date string) (string, error) {
+	url := transport.BuildTransfersAllSidecarURL(c.FTPBaseURL(), date, ".asc")
+	return c.FetchText(ctx, url)
 }
 
 // parseTransfersAll parses the pipe-delimited cumulative transfers-all log.
 // The first non-comment line is the header; subsequent lines are data rows.
 // Comment lines (starting with '#') and blank lines are skipped.
-func parseTransfersAll(data string) (*TransfersAllResult, error) {
-	result := &TransfersAllResult{Records: make([]TransferAllRecord, 0, 1000)}
+func parseTransfersAll(data string) (*models.TransfersAllResult, error) {
+	result := &models.TransfersAllResult{Records: make([]models.TransferAllRecord, 0, 1000)}
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024) // lines can be long
 
@@ -80,16 +83,16 @@ func parseTransfersAll(data string) (*TransfersAllResult, error) {
 		if parts[0] == "resource_type" {
 			continue
 		}
-		rec := TransferAllRecord{
-			ResourceType:     parts[0],
-			Resource:         parts[1],
-			FromOrganisation: parts[2],
-			FromEconomy:      parts[3],
-			FromRIR:          parts[4],
-			ToOrganisation:   parts[6],
-			ToEconomy:        parts[7],
-			ToRIR:            parts[8],
-			TransferType:     parts[10],
+		rec := models.TransferAllRecord{
+			ResourceType:      parts[0],
+			Resource:          parts[1],
+			FromOrganisation:  parts[2],
+			FromEconomy:       parts[3],
+			FromRIR:           parts[4],
+			ToOrganisation:    parts[6],
+			ToEconomy:         parts[7],
+			ToRIR:             parts[8],
+			TransferType:      parts[10],
 		}
 		if t, err := time.Parse("20060102", parts[5]); err == nil {
 			rec.PreviousDelegationDate = t
@@ -105,11 +108,11 @@ func parseTransfersAll(data string) (*TransfersAllResult, error) {
 // transfersJSON represents the JSON structure of the transfers data file.
 type transfersJSON struct {
 	Version struct {
-		Producer       string   `json:"producer"`
-		ProductionDate string   `json:"production_date"`
-		Remarks        []string `json:"remarks"`
-		UTCOffset      int      `json:"UTC_offset"`
-		StatsVersion   string   `json:"stats_version"`
+		Producer        string   `json:"producer"`
+		ProductionDate  string   `json:"production_date"`
+		Remarks         []string `json:"remarks"`
+		UTCOffset       int      `json:"UTC_offset"`
+		StatsVersion    string   `json:"stats_version"`
 		RecordsInterval struct {
 			StartDate string `json:"start_date"`
 			EndDate   string `json:"end_date"`
@@ -119,15 +122,15 @@ type transfersJSON struct {
 }
 
 type transferJSON struct {
-	TransferDate         string              `json:"transfer_date"`
-	Type                 string              `json:"type"`
-	SourceRIR            string              `json:"source_rir"`
-	RecipientRIR         string              `json:"recipient_rir"`
-	SourceOrganization   *orgJSON            `json:"source_organization"`
+	TransferDate          string              `json:"transfer_date"`
+	Type                  string              `json:"type"`
+	SourceRIR             string              `json:"source_rir"`
+	RecipientRIR          string              `json:"recipient_rir"`
+	SourceOrganization    *orgJSON           `json:"source_organization"`
 	RecipientOrganization *orgJSON           `json:"recipient_organization"`
-	IPv4Nets             *transferNetSetJSON `json:"ip4nets"`
-	IPv6Nets             *transferNetSetJSON `json:"ip6nets"`
-	ASNs                 *transferASNSetJSON `json:"asns"`
+	IPv4Nets              *transferNetSetJSON `json:"ip4nets"`
+	IPv6Nets              *transferNetSetJSON `json:"ip6nets"`
+	ASNs                  *transferASNSetJSON `json:"asns"`
 }
 
 type orgJSON struct {
@@ -154,18 +157,18 @@ type asnRangeJSON struct {
 }
 
 // parseTransfersData parses the JSON transfers data.
-func parseTransfersData(data string) (*TransfersResult, error) {
+func parseTransfersData(data string) (*models.TransfersResult, error) {
 	var raw transfersJSON
 	if err := json.Unmarshal([]byte(data), &raw); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrTransferParseFail, err)
+		return nil, fmt.Errorf("%w: %v", transport.ErrTransferParseFail, err)
 	}
 
-	result := &TransfersResult{
-		Metadata: TransfersMetadata{
+	result := &models.TransfersResult{
+		Metadata: models.TransfersMetadata{
 			Producer:     raw.Version.Producer,
 			StatsVersion: raw.Version.StatsVersion,
 		},
-		Transfers: make([]TransferRecord, 0, len(raw.Transfers)),
+		Transfers: make([]models.TransferRecord, 0, len(raw.Transfers)),
 	}
 
 	// Parse metadata dates
@@ -181,7 +184,7 @@ func parseTransfersData(data string) (*TransfersResult, error) {
 
 	// Parse transfer records
 	for _, t := range raw.Transfers {
-		record := TransferRecord{
+		record := models.TransferRecord{
 			Type:         t.Type,
 			SourceRIR:    t.SourceRIR,
 			RecipientRIR: t.RecipientRIR,
@@ -192,41 +195,41 @@ func parseTransfersData(data string) (*TransfersResult, error) {
 		}
 
 		if t.SourceOrganization != nil {
-			record.SourceOrganization = Organization{
+			record.SourceOrganization = models.Organization{
 				Name:        t.SourceOrganization.Name,
 				CountryCode: t.SourceOrganization.CountryCode,
 			}
 		}
 
 		if t.RecipientOrganization != nil {
-			record.RecipientOrganization = Organization{
+			record.RecipientOrganization = models.Organization{
 				Name:        t.RecipientOrganization.Name,
 				CountryCode: t.RecipientOrganization.CountryCode,
 			}
 		}
 
 		if t.IPv4Nets != nil && len(t.IPv4Nets.TransferSet) > 0 {
-			nets := make([]NetRange, 0, len(t.IPv4Nets.TransferSet))
+			nets := make([]models.NetRange, 0, len(t.IPv4Nets.TransferSet))
 			for _, nr := range t.IPv4Nets.TransferSet {
-				nets = append(nets, NetRange{StartAddress: nr.StartAddress, EndAddress: nr.EndAddress})
+				nets = append(nets, models.NetRange{StartAddress: nr.StartAddress, EndAddress: nr.EndAddress})
 			}
-			record.IPv4Nets = &TransferNetSet{TransferSet: nets}
+			record.IPv4Nets = &models.TransferNetSet{TransferSet: nets}
 		}
 
 		if t.IPv6Nets != nil && len(t.IPv6Nets.TransferSet) > 0 {
-			nets := make([]NetRange, 0, len(t.IPv6Nets.TransferSet))
+			nets := make([]models.NetRange, 0, len(t.IPv6Nets.TransferSet))
 			for _, nr := range t.IPv6Nets.TransferSet {
-				nets = append(nets, NetRange{StartAddress: nr.StartAddress, EndAddress: nr.EndAddress})
+				nets = append(nets, models.NetRange{StartAddress: nr.StartAddress, EndAddress: nr.EndAddress})
 			}
-			record.IPv6Nets = &TransferNetSet{TransferSet: nets}
+			record.IPv6Nets = &models.TransferNetSet{TransferSet: nets}
 		}
 
 		if t.ASNs != nil && len(t.ASNs.TransferSet) > 0 {
-			asns := make([]ASNRange, 0, len(t.ASNs.TransferSet))
+			asns := make([]models.ASNRange, 0, len(t.ASNs.TransferSet))
 			for _, ar := range t.ASNs.TransferSet {
-				asns = append(asns, ASNRange{StartASN: ar.StartASN, EndASN: ar.EndASN})
+				asns = append(asns, models.ASNRange{StartASN: ar.StartASN, EndASN: ar.EndASN})
 			}
-			record.ASNs = &TransferASNSet{TransferSet: asns}
+			record.ASNs = &models.TransferASNSet{TransferSet: asns}
 		}
 
 		result.Transfers = append(result.Transfers, record)

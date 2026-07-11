@@ -12,20 +12,20 @@ import (
 // date: optional date in YYYYMMDD format; if empty, uses "latest"
 func (c *Client) VerifyMD5(ctx context.Context, dataType, date string) error {
 	// Fetch the data
-	dataURL := buildStatsURL(c.statsBaseURL, dataType, date)
-	data, err := c.fetchText(ctx, dataURL)
+	dataURL := BuildStatsURL(c.statsBaseURL, dataType, date)
+	data, err := c.FetchText(ctx, dataURL)
 	if err != nil {
 		return err
 	}
 
 	// Fetch the MD5 checksum
-	md5URL := buildStatsMD5URL(c.statsBaseURL, dataType, date)
-	expectedMD5, err := c.fetchText(ctx, md5URL)
+	md5URL := BuildStatsMD5URL(c.statsBaseURL, dataType, date)
+	expectedMD5, err := c.FetchText(ctx, md5URL)
 	if err != nil {
 		return err
 	}
 
-	expectedHash, err := parseMD5Checksum(expectedMD5)
+	expectedHash, err := ParseMD5Checksum(expectedMD5)
 	if err != nil {
 		return err
 	}
@@ -44,17 +44,17 @@ func (c *Client) VerifyMD5(ctx context.Context, dataType, date string) error {
 // dataType: "delegated", "delegated-extended", "assigned", "delegated-ipv6-assigned", "legacy"
 // date: optional date in YYYYMMDD format; if empty, uses "latest
 func (c *Client) FetchMD5Checksum(ctx context.Context, dataType, date string) (string, error) {
-	md5URL := buildStatsMD5URL(c.statsBaseURL, dataType, date)
-	content, err := c.fetchText(ctx, md5URL)
+	md5URL := BuildStatsMD5URL(c.statsBaseURL, dataType, date)
+	content, err := c.FetchText(ctx, md5URL)
 	if err != nil {
 		return "", err
 	}
-	return parseMD5Checksum(content)
+	return ParseMD5Checksum(content)
 }
 
 // parseMD5Checksum extracts the hex MD5 hash from a checksum file.
 // Supports both BSD-style "MD5 (file) = <hash>" and GNU-style "<hash>  file".
-func parseMD5Checksum(content string) (string, error) {
+func ParseMD5Checksum(content string) (string, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return "", fmt.Errorf("%w: empty MD5 checksum file", ErrVerifyFailed)
@@ -101,12 +101,12 @@ func isMD5Hex(s string) bool {
 // dataType: "delegated", "delegated-extended", "assigned", "legacy"
 // date: optional date in YYYYMMDD format; if empty, uses "latest"
 func (c *Client) FetchASCSignature(ctx context.Context, dataType, date string) (string, error) {
-	ascURL := buildStatsASCURL(c.statsBaseURL, dataType, date)
-	return c.fetchText(ctx, ascURL)
+	ascURL := BuildStatsASCURL(c.statsBaseURL, dataType, date)
+	return c.FetchText(ctx, ascURL)
 }
 
 // FetchPublicKey fetches the current APNIC public key used for signing stats files.
 func (c *Client) FetchPublicKey(ctx context.Context) (string, error) {
 	url := c.statsBaseURL + "CURRENT_PUBLIC_KEY"
-	return c.fetchText(ctx, url)
+	return c.FetchText(ctx, url)
 }

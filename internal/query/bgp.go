@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 // FetchBGPSummary fetches and parses APNIC thyme's data-summary file, a
 // colon-separated key/value listing of BGP routing table analysis metrics.
-func (c *Client) FetchBGPSummary(ctx context.Context) (*BGPSummary, error) {
-	url := buildThymeURL(c.thymeBaseURL, c.thymeSource, "data-summary")
-	body, err := c.fetchText(ctx, url)
+func FetchBGPSummary(ctx context.Context, c *transport.Client) (*models.BGPSummary, error) {
+	url := transport.BuildThymeURL(c.ThymeBaseURL(), c.ThymeSource(), "data-summary")
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -21,9 +24,9 @@ func (c *Client) FetchBGPSummary(ctx context.Context) (*BGPSummary, error) {
 
 // FetchBGPRawTable fetches and parses APNIC thyme's data-raw-table file, which
 // lists every BGP route as a "prefix\tASN" line.
-func (c *Client) FetchBGPRawTable(ctx context.Context) (*BGPRawTable, error) {
-	url := buildThymeURL(c.thymeBaseURL, c.thymeSource, "data-raw-table")
-	body, err := c.fetchTextStr(ctx, url)
+func FetchBGPRawTable(ctx context.Context, c *transport.Client) (*models.BGPRawTable, error) {
+	url := transport.BuildThymeURL(c.ThymeBaseURL(), c.ThymeSource(), "data-raw-table")
+	body, err := c.FetchTextStr(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -38,12 +41,12 @@ func (c *Client) FetchBGPRawTable(ctx context.Context) (*BGPRawTable, error) {
 // returning a map from each origin ASN to the prefixes it announces. This is a
 // client-side derivation from data-raw-table; thyme does not publish a separate
 // per-ASN file.
-func (c *Client) FetchBGPASNMap(ctx context.Context) (*BGPASNMap, error) {
-	raw, err := c.FetchBGPRawTable(ctx)
+func FetchBGPASNMap(ctx context.Context, c *transport.Client) (*models.BGPASNMap, error) {
+	raw, err := FetchBGPRawTable(ctx, c)
 	if err != nil {
 		return nil, err
 	}
-	m := &BGPASNMap{ASNs: make(map[string][]string, len(raw.Routes))}
+	m := &models.BGPASNMap{ASNs: make(map[string][]string, len(raw.Routes))}
 	for _, r := range raw.Routes {
 		m.ASNs[r.ASN] = append(m.ASNs[r.ASN], r.Prefix)
 	}
@@ -54,9 +57,9 @@ func (c *Client) FetchBGPASNMap(ctx context.Context) (*BGPASNMap, error) {
 // lists prefixes longer than /24 and their origin AS (potential route leaks).
 // source is "current" (default), "au", or "hk"; an empty string uses the
 // client's default source.
-func (c *Client) FetchBGPBadPrefixes(ctx context.Context, source string) (*BGPBadPrefixes, error) {
-	url := buildThymeURL(c.thymeBaseURL, sourceOrDefault(source, c.thymeSource), "data-badpfx-nos")
-	body, err := c.fetchText(ctx, url)
+func FetchBGPBadPrefixes(ctx context.Context, c *transport.Client, source string) (*models.BGPBadPrefixes, error) {
+	url := transport.BuildThymeURL(c.ThymeBaseURL(), transport.SourceOrDefault(source, c.ThymeSource()), "data-badpfx-nos")
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +68,9 @@ func (c *Client) FetchBGPBadPrefixes(ctx context.Context, source string) (*BGPBa
 
 // FetchBGPPerPrefixLength fetches and parses thyme's data-pfx-nos file, which
 // counts announced prefixes per prefix length.
-func (c *Client) FetchBGPPerPrefixLength(ctx context.Context, source string) (*BGPPerPrefixLength, error) {
-	url := buildThymeURL(c.thymeBaseURL, sourceOrDefault(source, c.thymeSource), "data-pfx-nos")
-	body, err := c.fetchText(ctx, url)
+func FetchBGPPerPrefixLength(ctx context.Context, c *transport.Client, source string) (*models.BGPPerPrefixLength, error) {
+	url := transport.BuildThymeURL(c.ThymeBaseURL(), transport.SourceOrDefault(source, c.ThymeSource()), "data-pfx-nos")
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -76,9 +79,9 @@ func (c *Client) FetchBGPPerPrefixLength(ctx context.Context, source string) (*B
 
 // FetchBGPUsedAutnums fetches and parses thyme's data-used-autnums file, which
 // lists every in-use ASN with its registered name and country.
-func (c *Client) FetchBGPUsedAutnums(ctx context.Context, source string) (*BGPUsedAutnums, error) {
-	url := buildThymeURL(c.thymeBaseURL, sourceOrDefault(source, c.thymeSource), "data-used-autnums")
-	body, err := c.fetchTextStr(ctx, url)
+func FetchBGPUsedAutnums(ctx context.Context, c *transport.Client, source string) (*models.BGPUsedAutnums, error) {
+	url := transport.BuildThymeURL(c.ThymeBaseURL(), transport.SourceOrDefault(source, c.ThymeSource()), "data-used-autnums")
+	body, err := c.FetchTextStr(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -88,9 +91,9 @@ func (c *Client) FetchBGPUsedAutnums(ctx context.Context, source string) (*BGPUs
 // FetchBGPSparPrefixes fetches and parses thyme's data-spar file, which lists
 // prefixes from the Special Purpose Address Registry (RFC 6890) and their
 // origin AS.
-func (c *Client) FetchBGPSparPrefixes(ctx context.Context, source string) (*BGPSparPrefixes, error) {
-	url := buildThymeURL(c.thymeBaseURL, sourceOrDefault(source, c.thymeSource), "data-spar")
-	body, err := c.fetchText(ctx, url)
+func FetchBGPSparPrefixes(ctx context.Context, c *transport.Client, source string) (*models.BGPSparPrefixes, error) {
+	url := transport.BuildThymeURL(c.ThymeBaseURL(), transport.SourceOrDefault(source, c.ThymeSource()), "data-spar")
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -99,9 +102,9 @@ func (c *Client) FetchBGPSparPrefixes(ctx context.Context, source string) (*BGPS
 
 // FetchBGPSinglePfx fetches and parses thyme's data-singlepfx file, which
 // tallies how many ASNs announce fewer than 20 prefixes, grouped by RIR.
-func (c *Client) FetchBGPSinglePfx(ctx context.Context, source string) (*BGPSinglePfx, error) {
-	url := buildThymeURL(c.thymeBaseURL, sourceOrDefault(source, c.thymeSource), "data-singlepfx")
-	body, err := c.fetchText(ctx, url)
+func FetchBGPSinglePfx(ctx context.Context, c *transport.Client, source string) (*models.BGPSinglePfx, error) {
+	url := transport.BuildThymeURL(c.ThymeBaseURL(), transport.SourceOrDefault(source, c.ThymeSource()), "data-singlepfx")
+	body, err := c.FetchText(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -113,8 +116,8 @@ func (c *Client) FetchBGPSinglePfx(ctx context.Context, source string) (*BGPSing
 // key is the trimmed text before the first colon; the value is the trimmed text
 // after it. Indented sub-metrics (which also use "key: value" form) are
 // captured as their own entries.
-func parseBGPSummary(data string) *BGPSummary {
-	s := &BGPSummary{Entries: make([]BGPKeyValue, 0, 64)}
+func parseBGPSummary(data string) *models.BGPSummary {
+	s := &models.BGPSummary{Entries: make([]models.BGPKeyValue, 0, 64)}
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
@@ -131,7 +134,7 @@ func parseBGPSummary(data string) *BGPSummary {
 		if key == "" {
 			continue
 		}
-		s.Entries = append(s.Entries, BGPKeyValue{Key: key, Value: val})
+		s.Entries = append(s.Entries, models.BGPKeyValue{Key: key, Value: val})
 	}
 	return s
 }
@@ -139,8 +142,8 @@ func parseBGPSummary(data string) *BGPSummary {
 // parseBGPRawTable parses the thyme data-raw-table file. Each non-empty line is
 // a "prefix\tASN" pair. Lines that do not split into exactly two fields are
 // skipped defensively.
-func parseBGPRawTable(data string) (*BGPRawTable, error) {
-	t := &BGPRawTable{Routes: make([]BGPRoute, 0, 1000000)}
+func parseBGPRawTable(data string) (*models.BGPRawTable, error) {
+	t := &models.BGPRawTable{Routes: make([]models.BGPRoute, 0, 1000000)}
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024) // large default for big files
 	for scanner.Scan() {
@@ -157,7 +160,7 @@ func parseBGPRawTable(data string) (*BGPRawTable, error) {
 				continue
 			}
 		}
-		t.Routes = append(t.Routes, BGPRoute{Prefix: fields[0], ASN: fields[1]})
+		t.Routes = append(t.Routes, models.BGPRoute{Prefix: fields[0], ASN: fields[1]})
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("BGP raw table scan failed: %w", err)
@@ -168,8 +171,8 @@ func parseBGPRawTable(data string) (*BGPRawTable, error) {
 // parseBGPBadPrefixes parses thyme's data-badpfx-nos file. After a header
 // (title + dash separator + column header), each non-empty line is
 // "OriginAS<TAB>Address". Lines without two whitespace fields are skipped.
-func parseBGPBadPrefixes(data string) *BGPBadPrefixes {
-	r := &BGPBadPrefixes{Prefixes: make([]BGPBadPrefix, 0, 10000)}
+func parseBGPBadPrefixes(data string) *models.BGPBadPrefixes {
+	r := &models.BGPBadPrefixes{Prefixes: make([]models.BGPBadPrefix, 0, 10000)}
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
@@ -185,7 +188,7 @@ func parseBGPBadPrefixes(data string) *BGPBadPrefixes {
 		if strings.EqualFold(fields[0], "Origin") || strings.EqualFold(fields[1], "Address") {
 			continue
 		}
-		r.Prefixes = append(r.Prefixes, BGPBadPrefix{OriginAS: fields[0], Address: fields[1]})
+		r.Prefixes = append(r.Prefixes, models.BGPBadPrefix{OriginAS: fields[0], Address: fields[1]})
 	}
 	return r
 }
@@ -194,8 +197,8 @@ func parseBGPBadPrefixes(data string) *BGPBadPrefixes {
 // "/N:count" tokens in a multi-column grid (several per line). Each token is
 // split on ":" into length (the N in /N) and count. Tokens that fail to parse
 // are skipped.
-func parseBGPPerPrefixLength(data string) *BGPPerPrefixLength {
-	r := &BGPPerPrefixLength{Counts: make([]BGPPrefixLengthCount, 0, 128)}
+func parseBGPPerPrefixLength(data string) *models.BGPPerPrefixLength {
+	r := &models.BGPPerPrefixLength{Counts: make([]models.BGPPrefixLengthCount, 0, 128)}
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
@@ -221,7 +224,7 @@ func parseBGPPerPrefixLength(data string) *BGPPerPrefixLength {
 			if err != nil {
 				continue
 			}
-			r.Counts = append(r.Counts, BGPPrefixLengthCount{Length: length, Count: count, Raw: tok})
+			r.Counts = append(r.Counts, models.BGPPrefixLengthCount{Length: length, Count: count, Raw: tok})
 		}
 	}
 	return r
@@ -231,8 +234,8 @@ func parseBGPPerPrefixLength(data string) *BGPPerPrefixLength {
 // "<ASN> <Name> - <Description>, <CC>", e.g. "1 LVLT-1 - Level 3 Parent, LLC, US".
 // The ASN is the first whitespace field; the country code is the text after the
 // final comma; the FullName is everything between them.
-func parseBGPUsedAutnums(data string) *BGPUsedAutnums {
-	r := &BGPUsedAutnums{Autnums: make([]BGPUsedAutnum, 0, 80000)}
+func parseBGPUsedAutnums(data string) *models.BGPUsedAutnums {
+	r := &models.BGPUsedAutnums{Autnums: make([]models.BGPUsedAutnum, 0, 80000)}
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
@@ -264,7 +267,7 @@ func parseBGPUsedAutnums(data string) *BGPUsedAutnums {
 		if len(nameFields) > 0 {
 			name = nameFields[0]
 		}
-		r.Autnums = append(r.Autnums, BGPUsedAutnum{
+		r.Autnums = append(r.Autnums, models.BGPUsedAutnum{
 			ASN:      asn,
 			Name:     name,
 			Country:  country,
@@ -278,8 +281,8 @@ func parseBGPUsedAutnums(data string) *BGPUsedAutnums {
 // is "<Prefix><TAB>OriginAS<TAB>Description". The description may contain
 // spaces, so the line is split into at most 3 fields by tab (falling back to
 // any-whitespace when the tab split yields only 2 fields).
-func parseBGPSparPrefixes(data string) *BGPSparPrefixes {
-	r := &BGPSparPrefixes{Prefixes: make([]BGPSparPrefix, 0, 64)}
+func parseBGPSparPrefixes(data string) *models.BGPSparPrefixes {
+	r := &models.BGPSparPrefixes{Prefixes: make([]models.BGPSparPrefix, 0, 64)}
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
@@ -305,7 +308,7 @@ func parseBGPSparPrefixes(data string) *BGPSparPrefixes {
 		if len(fields) >= 3 {
 			desc = strings.TrimSpace(strings.Join(fields[2:], " "))
 		}
-		r.Prefixes = append(r.Prefixes, BGPSparPrefix{Prefix: prefix, OriginAS: originAS, Description: desc})
+		r.Prefixes = append(r.Prefixes, models.BGPSparPrefix{Prefix: prefix, OriginAS: originAS, Description: desc})
 	}
 	return r
 }
@@ -313,8 +316,8 @@ func parseBGPSparPrefixes(data string) *BGPSparPrefixes {
 // parseBGPSinglePfx parses thyme's data-singlepfx file. After a header, each
 // line is "<PrefixCount><TAB><ASNCount><TAB><RIR>", e.g. "1 27539 Global".
 // Non-numeric prefix/ASN counts are skipped.
-func parseBGPSinglePfx(data string) *BGPSinglePfx {
-	r := &BGPSinglePfx{Counts: make([]BGPSinglePfxCount, 0, 32)}
+func parseBGPSinglePfx(data string) *models.BGPSinglePfx {
+	r := &models.BGPSinglePfx{Counts: make([]models.BGPSinglePfxCount, 0, 32)}
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
@@ -339,7 +342,7 @@ func parseBGPSinglePfx(data string) *BGPSinglePfx {
 			continue
 		}
 		rir := strings.Join(fields[2:], " ")
-		r.Counts = append(r.Counts, BGPSinglePfxCount{PrefixCount: prefixCount, ASNCount: asnCount, RIR: rir})
+		r.Counts = append(r.Counts, models.BGPSinglePfxCount{PrefixCount: prefixCount, ASNCount: asnCount, RIR: rir})
 	}
 	return r
 }

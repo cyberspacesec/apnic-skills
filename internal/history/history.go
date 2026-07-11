@@ -3,71 +3,75 @@ package history
 import (
 	"context"
 	"fmt"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+	"github.com/cyberspacesec/apnic-skills/internal/stats"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 // FetchHistoricalDelegated fetches delegated stats for a specific date.
 // date must be in YYYYMMDD format.
-func (c *Client) FetchHistoricalDelegated(ctx context.Context, date string) (*DelegatedResult, error) {
+func FetchHistoricalDelegated(ctx context.Context, c *transport.Client, date string) (*models.DelegatedResult, error) {
 	if len(date) != 8 {
-		return nil, fmt.Errorf("%w: date must be in YYYYMMDD format, got %s", ErrInvalidDate, date)
+		return nil, fmt.Errorf("%w: date must be in YYYYMMDD format, got %s", transport.ErrInvalidDate, date)
 	}
-	return c.FetchDelegatedResult(ctx, date)
+	return stats.FetchDelegatedResult(ctx, c, date)
 }
 
 // FetchHistoricalExtended fetches extended delegated stats for a specific date.
 // date must be in YYYYMMDD format.
-func (c *Client) FetchHistoricalExtended(ctx context.Context, date string) (*ExtendedResult, error) {
+func FetchHistoricalExtended(ctx context.Context, c *transport.Client, date string) (*models.ExtendedResult, error) {
 	if len(date) != 8 {
-		return nil, fmt.Errorf("%w: date must be in YYYYMMDD format, got %s", ErrInvalidDate, date)
+		return nil, fmt.Errorf("%w: date must be in YYYYMMDD format, got %s", transport.ErrInvalidDate, date)
 	}
-	return c.FetchExtendedResult(ctx, date)
+	return stats.FetchExtendedResult(ctx, c, date)
 }
 
 // FetchHistoricalAssigned fetches assigned stats for a specific date.
 // date must be in YYYYMMDD format.
-func (c *Client) FetchHistoricalAssigned(ctx context.Context, date string) (*AssignedResult, error) {
+func FetchHistoricalAssigned(ctx context.Context, c *transport.Client, date string) (*models.AssignedResult, error) {
 	if len(date) != 8 {
-		return nil, fmt.Errorf("%w: date must be in YYYYMMDD format, got %s", ErrInvalidDate, date)
+		return nil, fmt.Errorf("%w: date must be in YYYYMMDD format, got %s", transport.ErrInvalidDate, date)
 	}
-	return c.FetchAssignedResult(ctx, date)
+	return stats.FetchAssignedResult(ctx, c, date)
 }
 
 // FetchHistoricalLegacy fetches legacy stats for a specific date.
 // date must be in YYYYMMDD format.
-func (c *Client) FetchHistoricalLegacy(ctx context.Context, date string) (*LegacyResult, error) {
+func FetchHistoricalLegacy(ctx context.Context, c *transport.Client, date string) (*models.LegacyResult, error) {
 	if len(date) != 8 {
-		return nil, fmt.Errorf("%w: date must be in YYYYMMDD format, got %s", ErrInvalidDate, date)
+		return nil, fmt.Errorf("%w: date must be in YYYYMMDD format, got %s", transport.ErrInvalidDate, date)
 	}
-	return c.FetchLegacyResult(ctx, date)
+	return stats.FetchLegacyResult(ctx, c, date)
 }
 
 // FetchDelegatedByYear fetches the delegated stats for the last day of the given year.
 // year must be a valid year (2001 or later, as APNIC stats start from 2001).
 // The file is served from the {year}/ archive subdirectory as a gzip-compressed file.
-func (c *Client) FetchDelegatedByYear(ctx context.Context, year int) (*DelegatedResult, error) {
+func FetchDelegatedByYear(ctx context.Context, c *transport.Client, year int) (*models.DelegatedResult, error) {
 	if year < 2001 {
-		return nil, fmt.Errorf("%w: year must be 2001 or later, got %d", ErrInvalidYear, year)
+		return nil, fmt.Errorf("%w: year must be 2001 or later, got %d", transport.ErrInvalidYear, year)
 	}
-	url := fmt.Sprintf("%s%d/delegated-apnic-%d1231.gz", c.statsBaseURL, year, year)
-	body, err := c.fetchTextStr(ctx, url)
+	url := fmt.Sprintf("%s%d/delegated-apnic-%d1231.gz", c.StatsBaseURL(), year, year)
+	body, err := c.FetchTextStr(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	return parseDelegatedFullFromString(body)
+	return stats.ParseDelegatedFullFromString(body)
 }
 
 // FetchExtendedByYear fetches the extended delegated stats for the last day of the given year.
 // The file is served from the {year}/ archive subdirectory as a gzip-compressed file.
-func (c *Client) FetchExtendedByYear(ctx context.Context, year int) (*ExtendedResult, error) {
+func FetchExtendedByYear(ctx context.Context, c *transport.Client, year int) (*models.ExtendedResult, error) {
 	if year < 2001 {
-		return nil, fmt.Errorf("%w: year must be 2001 or later, got %d", ErrInvalidYear, year)
+		return nil, fmt.Errorf("%w: year must be 2001 or later, got %d", transport.ErrInvalidYear, year)
 	}
-	url := fmt.Sprintf("%s%d/delegated-apnic-extended-%d1231.gz", c.statsBaseURL, year, year)
-	body, err := c.fetchTextStr(ctx, url)
+	url := fmt.Sprintf("%s%d/delegated-apnic-extended-%d1231.gz", c.StatsBaseURL(), year, year)
+	body, err := c.FetchTextStr(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	return parseExtendedFullFromString(body)
+	return stats.ParseExtendedFullFromString(body)
 }
 
 // ListAvailableYears returns the list of years for which historical data is available.

@@ -10,17 +10,20 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
 
 // fetchJSON performs an HTTP GET and decodes a JSON response into out. It is the
 // shared transport for REx endpoints, which return application/json (or, on a
 // parameter error, a short plain-text message that must surface as an error).
-// It goes through doHTTPRequest so stealth/rate-limit/jitter all apply. When
+// It goes through DoHTTPRequest so stealth/rate-limit/jitter all apply. When
 // stealth advertises Accept-Encoding: gzip and the server honours it, the body
 // is decompressed here (Go's Transport does not auto-decompress when the header
 // is set explicitly — the same pitfall fetchText handles for .gz archives).
-func (c *Client) fetchJSON(ctx context.Context, requestURL, accept string, out interface{}) error {
-	resp, err := c.doHTTPRequest(ctx, "GET", requestURL, accept)
+func fetchJSON(ctx context.Context, c *transport.Client, requestURL, accept string, out interface{}) error {
+	resp, err := c.DoHTTPRequest(ctx, "GET", requestURL, accept)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
@@ -54,10 +57,10 @@ func (c *Client) fetchJSON(ctx context.Context, requestURL, accept string, out i
 // service determines the caller's source IP (no parameters required) and
 // returns the covering prefix, its origin ASN, and the registered economy code.
 // This is the cross-RIR "which network am I in?" lookup.
-func (c *Client) FetchRExUserNetwork(ctx context.Context) (*RExUserNetwork, error) {
-	u := buildRExURL(c.rexBaseURL, "user-network", nil)
-	var res RExUserNetwork
-	if err := c.fetchJSON(ctx, u, "application/json", &res); err != nil {
+func FetchRExUserNetwork(ctx context.Context, c *transport.Client) (*models.RExUserNetwork, error) {
+	u := buildRExURL(c.RExBaseURL(), "user-network", nil)
+	var res models.RExUserNetwork
+	if err := fetchJSON(ctx, c, u, "application/json", &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -69,14 +72,14 @@ func (c *Client) FetchRExUserNetwork(ctx context.Context) (*RExUserNetwork, erro
 // (a bounded window, not the full 100k+ history — use FetchRExHoldersUniqueCount
 // for aggregate scale). type may be empty for all kinds, or one of "ipv4",
 // "ipv6", "asn" to filter server-side.
-func (c *Client) FetchRExResources(ctx context.Context, resourceType string) (*RExResourcesResult, error) {
+func FetchRExResources(ctx context.Context, c *transport.Client, resourceType string) (*models.RExResourcesResult, error) {
 	q := url.Values{}
 	if resourceType != "" {
 		q.Set("type", resourceType)
 	}
-	u := buildRExURL(c.rexBaseURL, "resources", q)
-	var res RExResourcesResult
-	if err := c.fetchJSON(ctx, u, "application/json", &res); err != nil {
+	u := buildRExURL(c.RExBaseURL(), "resources", q)
+	var res models.RExResourcesResult
+	if err := fetchJSON(ctx, c, u, "application/json", &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -88,16 +91,16 @@ func (c *Client) FetchRExResources(ctx context.Context, resourceType string) (*R
 // rir is the responsible RIR — one of "afrinic", "apnic", "arin", "lacnic",
 // "ripencc" (note: the RIPE NCC code is "ripencc", not "ripe"). Both are
 // required by the server.
-func (c *Client) FetchRExHolder(ctx context.Context, opaqueID, rir string) (*RExHolder, error) {
+func FetchRExHolder(ctx context.Context, c *transport.Client, opaqueID, rir string) (*models.RExHolder, error) {
 	if opaqueID == "" || rir == "" {
-		return nil, ErrInvalidRExParam
+		return nil, transport.ErrInvalidRExParam
 	}
 	q := url.Values{}
 	q.Set("opaqueId", opaqueID)
 	q.Set("rir", rir)
-	u := buildRExURL(c.rexBaseURL, "holder", q)
-	var res RExHolder
-	if err := c.fetchJSON(ctx, u, "application/json", &res); err != nil {
+	u := buildRExURL(c.RExBaseURL(), "holder", q)
+	var res models.RExHolder
+	if err := fetchJSON(ctx, c, u, "application/json", &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -106,10 +109,10 @@ func (c *Client) FetchRExHolder(ctx context.Context, opaqueID, rir string) (*REx
 // FetchRExHoldersUniqueCount calls the REx /v1/holders/unique-count endpoint,
 // returning the total number of distinct resource-holder organisations across
 // all RIRs. No parameters are required.
-func (c *Client) FetchRExHoldersUniqueCount(ctx context.Context) (*RExHoldersCount, error) {
-	u := buildRExURL(c.rexBaseURL, "holders/unique-count", nil)
-	var res RExHoldersCount
-	if err := c.fetchJSON(ctx, u, "application/json", &res); err != nil {
+func FetchRExHoldersUniqueCount(ctx context.Context, c *transport.Client) (*models.RExHoldersCount, error) {
+	u := buildRExURL(c.RExBaseURL(), "holders/unique-count", nil)
+	var res models.RExHoldersCount
+	if err := fetchJSON(ctx, c, u, "application/json", &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -135,6 +138,6 @@ func isRExAPIError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.Is(err, ErrInvalidRExParam) ||
+	return errors.Is(err, transport.ErrInvalidRExParam) ||
 		strings.Contains(err.Error(), "unexpected status code")
 }
