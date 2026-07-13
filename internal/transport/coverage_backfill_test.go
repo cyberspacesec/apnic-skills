@@ -140,9 +140,11 @@ func TestFetchTextStr_FetchReaderError(t *testing.T) {
 }
 
 // TestSingleStream_GzipInitError covers singleStream's gzip-init-failed branch
-// (downloader.go:400). singleStream is reached when downloadChunked returns
-// errChunkingUnsupported; a small body (<512KB) guarantees that fallback. The
-// .gz URL suffix makes singleStream attempt gzip.NewReader on a non-gzip body.
+// (downloader.go:400). WithMaxConcurrentDownloads(1) sets maxConcurrent<=1, so
+// FetchReader skips downloadChunked entirely and calls singleStream directly
+// (downloader.go:52: the `maxConcurrent > 1` guard is false). The .gz URL
+// suffix then makes singleStream attempt gzip.NewReader on a non-gzip body,
+// triggering the gzip init failed error.
 func TestSingleStream_GzipInitError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
