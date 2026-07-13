@@ -183,3 +183,28 @@ func TestFetchIPv6AssignedEntriesByDateError(t *testing.T) {
 		t.Error("expected error for HTTP 404 in FetchIPv6AssignedEntriesByDate")
 	}
 }
+
+// TestFetchIPv6AssignedEntriesError covers the error branch of
+// FetchIPv6AssignedEntries (ipv6_assigned.go:18) — when the underlying
+// FetchIPv6AssignedResult returns an error (HTTP 500 here), Entries must
+// propagate it as nil, err.
+func TestFetchIPv6AssignedEntriesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := transport.NewClient(
+		transport.WithHTTPClient(server.Client()),
+		transport.WithStatsBaseURL(server.URL+"/"),
+		transport.WithCacheTTL(1*time.Hour),
+	)
+
+	entries, err := FetchIPv6AssignedEntries(context.Background(), client)
+	if err == nil {
+		t.Fatal("expected error for HTTP 500")
+	}
+	if entries != nil {
+		t.Errorf("expected nil entries on error, got %d", len(entries))
+	}
+}
