@@ -294,3 +294,94 @@ func TestDialWithReadError(t *testing.T) {
 	// Write still works.
 	conn.Write([]byte("x"))
 }
+
+// TestAllStatsHandler_ExtendedSubstrings covers the delegated-extended and
+// delegated-ipv6-assigned branches of pickSample (testutil.go:181,183). These
+// match on the literal substrings "delegated-extended" /
+// "delegated-ipv6-assigned"; paths containing "delegated-apnic-extended-..."
+// (with "-apnic-" in between) do NOT match and previously fell through to the
+// broader "delegated"/"assigned" branches, leaving these two returns uncovered.
+func TestAllStatsHandler_ExtendedSubstrings(t *testing.T) {
+	srv := httptest.NewServer(AllStatsHandler())
+	defer srv.Close()
+	for _, c := range []struct{ path string }{
+		{"/delegated-extended"},
+		{"/delegated-ipv6-assigned"},
+	} {
+		resp, err := http.Get(srv.URL + c.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if len(body) == 0 {
+			t.Errorf("path %q returned empty body", c.path)
+		}
+		if ct := resp.Header.Get("Content-Type"); ct != "text/plain" {
+			t.Errorf("path %q Content-Type = %q, want text/plain", c.path, ct)
+		}
+	}
+}
+
+// TestAllStatsHandler_DefaultBranch covers the default case of AllStatsHandler's
+// pickSample (testutil.go:195), which returns SampleRDAPNotFoundJSON for paths
+// matching none of the known substrings.
+func TestAllStatsHandler_DefaultBranch(t *testing.T) {
+	srv := httptest.NewServer(AllStatsHandler())
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/totally-unknown-path-zzz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if len(body) == 0 {
+		t.Error("default branch returned empty body, want SampleRDAPNotFoundJSON")
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "application/rdap+json" {
+		t.Errorf("default branch Content-Type = %q, want application/rdap+json", ct)
+	}
+}
+
+// TestDialWithWriteError_DialFailure covers the DialContext-error branch of
+// DialWithWriteError (testutil.go:135) by dialing a closed-port address that
+// refuses connections.
+func TestDialWithWriteError_DialFailure(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+
+	dial := DialWithWriteError(addr)
+	conn, err := dial(context.Background(), "tcp", addr)
+	if err == nil {
+		conn.Close()
+		t.Fatal("expected dial error connecting to closed port")
+	}
+	if conn != nil {
+		t.Error("expected nil conn on dial error")
+	}
+}
+
+// TestDialWithReadError_DialFailure covers the DialContext-error branch of
+// DialWithReadError (testutil.go:147) by dialing a refused port.
+func TestDialWithReadError_DialFailure(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+
+	dial := DialWithReadError(addr)
+	conn, err := dial(context.Background(), "tcp", addr)
+	if err == nil {
+		conn.Close()
+		t.Fatal("expected dial error connecting to closed port")
+	}
+	if conn != nil {
+		t.Error("expected nil conn on dial error")
+	}
+}
