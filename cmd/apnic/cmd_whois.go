@@ -37,13 +37,17 @@ var whoisIPCmd = &cobra.Command{
 			printJSON(info)
 			return nil
 		}
-		fmt.Printf("Network: %s\n", info.Network)
-		fmt.Printf("CIDR:    %v\n", info.CIDR)
-		fmt.Printf("Country: %s\n", info.Country)
-		fmt.Printf("Org:     %s\n", info.OrgName)
-		fmt.Printf("Parent:  %s\n", info.Parent)
-		fmt.Printf("Created: %s\n", info.Created)
-		fmt.Printf("Updated: %s\n", info.LastUpdated)
+		fmt.Printf("Network:      %s\n", info.Network)
+		fmt.Printf("NetName:      %s\n", info.NetName)
+		fmt.Printf("CIDR:         %v\n", info.CIDR)
+		fmt.Printf("Country:      %s\n", info.Country)
+		fmt.Printf("Org:          %s\n", info.OrgName)
+		fmt.Printf("Status:       %s\n", info.Status)
+		fmt.Printf("Origin ASN:   %s\n", info.OriginASN)
+		fmt.Printf("Abuse:        %s\n", info.AbuseContact)
+		fmt.Printf("Parent:       %s\n", info.Parent)
+		fmt.Printf("Created:      %s\n", info.Created)
+		fmt.Printf("LastUpdated:  %s\n", info.LastUpdated)
 		return nil
 	},
 }
@@ -67,9 +71,14 @@ var whoisASNCmd = &cobra.Command{
 			printJSON(info)
 			return nil
 		}
-		fmt.Printf("Network: %s\n", info.Network)
-		fmt.Printf("Country: %s\n", info.Country)
-		fmt.Printf("Org:     %s\n", info.OrgName)
+		fmt.Printf("Network:      %s\n", info.Network)
+		fmt.Printf("NetName:      %s\n", info.NetName)
+		fmt.Printf("Country:      %s\n", info.Country)
+		fmt.Printf("Org:          %s\n", info.OrgName)
+		fmt.Printf("Status:       %s\n", info.Status)
+		fmt.Printf("Origin ASN:   %s\n", info.OriginASN)
+		fmt.Printf("Abuse:        %s\n", info.AbuseContact)
+		fmt.Printf("LastUpdated:  %s\n", info.LastUpdated)
 		return nil
 	},
 }
