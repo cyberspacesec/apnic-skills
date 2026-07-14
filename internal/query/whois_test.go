@@ -43,8 +43,11 @@ func TestQueryWhoisIP(t *testing.T) {
 	if info.OrgName != "APNIC and Cloudflare DNS Resolver project" {
 		t.Errorf("orgName = %q, want APNIC and Cloudflare DNS Resolver project", info.OrgName)
 	}
-	if info.Parent != "1.0.0.0 - 1.255.255.255" {
-		t.Errorf("parent = %q, want 1.0.0.0 - 1.255.255.255", info.Parent)
+	if info.OriginASN != "AS13335" {
+		t.Errorf("originASN = %q, want AS13335", info.OriginASN)
+	}
+	if info.NetName != "APNIC-LABS" {
+		t.Errorf("netName = %q, want APNIC-LABS", info.NetName)
 	}
 }
 
@@ -112,14 +115,23 @@ func TestParseWhoisResponse(t *testing.T) {
 	if info.Network != "1.1.1.0 - 1.1.1.255" {
 		t.Errorf("network = %q", info.Network)
 	}
+	if info.NetName != "APNIC-LABS" {
+		t.Errorf("netName = %q, want APNIC-LABS", info.NetName)
+	}
 	if info.Country != "AU" {
 		t.Errorf("country = %q", info.Country)
 	}
 	if len(info.CIDR) != 1 || info.CIDR[0] != "1.1.1.0/24" {
-		t.Errorf("cidr = %v", info.CIDR)
+		t.Errorf("cidr = %v, want [1.1.1.0/24]", info.CIDR)
 	}
-	if info.Created.IsZero() {
-		t.Error("expected non-zero created date")
+	if info.OriginASN != "AS13335" {
+		t.Errorf("originASN = %q, want AS13335", info.OriginASN)
+	}
+	if info.Status != "ASSIGNED PORTABLE" {
+		t.Errorf("status = %q, want ASSIGNED PORTABLE", info.Status)
+	}
+	if info.OrgName != "APNIC and Cloudflare DNS Resolver project" {
+		t.Errorf("orgName = %q", info.OrgName)
 	}
 	if info.LastUpdated.IsZero() {
 		t.Error("expected non-zero lastUpdated date")
