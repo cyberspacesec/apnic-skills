@@ -105,11 +105,11 @@ graph TB
 
 | Layer | Source file | Responsibility |
 |-------|-------------|----------------|
-| **HTTP Client** | `client.go` | Holds all configuration, base URLs, and the `Option` functional-options pattern. `doHTTPRequest` is the single execution outlet. |
-| **Anti-Scraping** | `stealth.go` | Browser-mimicry headers, token-bucket rate limiter, request jitter, and explicit gzip handling. Applied inside `doHTTPRequest`. |
-| **Chunked Download** | `downloader.go` | Range-probe, chunk planning, concurrent worker pool, retry with slow-chunk splitting, `io.Pipe` merge. Used by `fetchReader`. |
-| **Caching** | `cache.go` | `sync.RWMutex`-guarded map with per-key TTL. Backs every `Get*` method. |
-| **Parser Design** | `fetcher.go`, `bgp.go`, `irr.go`, `rrdp.go`, `rdap.go`, `rex.go` | Streaming vs. full-buffer parsers, boundary defense, error handling. |
+| **HTTP Client** | `internal/transport/client.go` | Holds all configuration, base URLs, and the `Option` functional-options pattern. `doHTTPRequest` is the single execution outlet. |
+| **Anti-Scraping** | `internal/transport/stealth.go` | Browser-mimicry headers, token-bucket rate limiter, request jitter, and explicit gzip handling. Applied inside `doHTTPRequest`. |
+| **Chunked Download** | `internal/transport/downloader.go` | Range-probe, chunk planning, concurrent worker pool, retry with slow-chunk splitting, `io.Pipe` merge. Used by `fetchReader`. |
+| **Caching** | `internal/transport/cache.go` | `sync.RWMutex`-guarded map with per-key TTL. Backs every `Get*` method. |
+| **Parser Design** | `internal/stats/fetcher.go`, `internal/query/bgp.go`, `internal/query/irr.go`, `internal/query/rrdp.go`, `internal/query/rdap.go`, `internal/query/rex.go` | Streaming vs. full-buffer parsers, boundary defense, error handling. |
 
 ## Design Principles
 

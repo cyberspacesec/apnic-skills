@@ -2162,6 +2162,57 @@ func TestCLI_BGPASNMapJSON(t *testing.T) {
 	}
 }
 
+func TestCLI_BGPPerPrefixLengthJSON(t *testing.T) {
+	resetFlags()
+	flagJSON = true
+	out, err := runWithStatsServer(t, []string{"bgp", "per-prefix-length"})
+	if err != nil {
+		t.Fatalf("bgp per-prefix-length --json: %v", err)
+	}
+	if !strings.Contains(out, `"Counts"`) {
+		t.Errorf("expected JSON output with Counts field, got: %s", out)
+	}
+}
+
+func TestCLI_BGPUsedAutnumsJSON(t *testing.T) {
+	resetFlags()
+	flagJSON = true
+	out, err := runWithStatsServer(t, []string{"bgp", "used-autnums"})
+	if err != nil {
+		t.Fatalf("bgp used-autnums --json: %v", err)
+	}
+	if !strings.Contains(out, `"Autnums"`) {
+		t.Errorf("expected JSON output with Autnums field, got: %s", out)
+	}
+}
+
+func TestCLI_BGPSparPrefixesJSON(t *testing.T) {
+	resetFlags()
+	flagJSON = true
+	out, err := runWithStatsServer(t, []string{"bgp", "spar-prefixes"})
+	if err != nil {
+		t.Fatalf("bgp spar-prefixes --json: %v", err)
+	}
+	if !strings.Contains(out, `"Prefixes"`) {
+		t.Errorf("expected JSON output with Prefixes field, got: %s", out)
+	}
+}
+
+func TestCLI_BGPSinglePfxJSON(t *testing.T) {
+	resetFlags()
+	flagJSON = true
+	out, err := runWithStatsServer(t, []string{"bgp", "single-pfx"})
+	if err != nil {
+		t.Fatalf("bgp single-pfx --json: %v", err)
+	}
+	if !strings.Contains(out, `"Counts"`) {
+		t.Errorf("expected JSON output with Counts field, got: %s", out)
+	}
+	if !strings.Contains(out, `"RIR"`) {
+		t.Errorf("expected JSON output with RIR field, got: %s", out)
+	}
+}
+
 func TestCLI_RPKINotificationJSON(t *testing.T) {
 	resetFlags()
 	flagJSON = true

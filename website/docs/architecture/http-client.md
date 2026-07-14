@@ -2,7 +2,7 @@
 
 The `Client` is the single entry point for every APNIC service. It owns all configuration (base URLs, timeouts, stealth state, download tunables) and exposes one HTTP execution outlet — `doHTTPRequest` — that every fetch helper and every chunk request must go through.
 
-Source: [`client.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/client.go), [`stealth.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/stealth.go).
+Source: [`internal/transport/client.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/transport/client.go), [`internal/transport/stealth.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/transport/stealth.go).
 
 ## Client Structure
 

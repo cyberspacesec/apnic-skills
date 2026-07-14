@@ -4,7 +4,7 @@ The RPKI family models the RRDP (RPKI Repository Delta Protocol, RFC 8182) updat
 
 The SDK deliberately retains only metadata from snapshots — the rsync URIs of `<publish>` and `<withdraw>` elements — and skips the multi-megabyte base64 CMS bodies during streaming decode, to keep memory bounded.
 
-All types live in [`models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/models.go).
+All types live in [`internal/models/models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/models/models.go).
 
 ## Class Diagram
 

@@ -2,7 +2,7 @@
 
 The IRR (Internet Routing Registry) family models APNIC's RPSL (Routing Policy Specification Language) database dumps, published as gzipped text files at `https://ftp.apnic.net/apnic/whois/apnic.db.<type>.gz`. Each dump contains objects of a single RPSL type; the SDK parses them into a generic `IRRObject` representation rather than one struct per type.
 
-All types live in [`models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/models.go); the canonical type list is `IRRObjectTypes` in [`irr.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/irr.go).
+All types live in [`internal/models/models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/models/models.go); the canonical type list is `IRRObjectTypes` in [`internal/query/irr.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/query/irr.go).
 
 ## Class Diagram
 

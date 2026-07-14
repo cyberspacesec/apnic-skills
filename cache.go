@@ -2,187 +2,116 @@ package apnic
 
 import (
 	"context"
-	"sync"
-	"time"
+
+	"github.com/cyberspacesec/apnic-skills/internal/models"
+	"github.com/cyberspacesec/apnic-skills/internal/query"
+	"github.com/cyberspacesec/apnic-skills/internal/stats"
+	"github.com/cyberspacesec/apnic-skills/internal/transport"
 )
-
-// cacheEntry holds cached data with its last update time.
-type cacheEntry struct {
-	data        interface{}
-	lastUpdated time.Time
-}
-
-// cache provides thread-safe caching for multiple data types.
-type cache struct {
-	mu   sync.RWMutex
-	ttl  time.Duration
-	data map[string]cacheEntry
-}
-
-// newCache creates a new cache with the specified TTL.
-func newCache(ttl time.Duration) *cache {
-	return &cache{
-		ttl:  ttl,
-		data: make(map[string]cacheEntry),
-	}
-}
-
-// get retrieves data from cache if it exists and has not expired.
-func (c *cache) get(key string) (interface{}, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	entry, ok := c.data[key]
-	if !ok || time.Since(entry.lastUpdated) >= c.ttl {
-		return nil, false
-	}
-	return entry.data, true
-}
-
-// set stores data in cache with the current timestamp.
-func (c *cache) set(key string, data interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.data[key] = cacheEntry{
-		data:        data,
-		lastUpdated: time.Now(),
-	}
-}
-
-// Cache key constants for different data types.
-const (
-	cacheKeyDelegated      = "delegated"
-	cacheKeyExtended       = "extended"
-	cacheKeyAssigned       = "assigned"
-	cacheKeyIPv6Assigned   = "ipv6-assigned"
-	cacheKeyLegacy         = "legacy"
-	cacheKeyTransfers      = "transfers"
-	cacheKeyChanges        = "changes"
-)
-
-// cacheKeyIRR returns the cache key for an IRR database of the given object type.
-func cacheKeyIRR(objType string) string {
-	return "irr:" + objType
-}
 
 // GetDelegatedEntries returns cached delegated entries, fetching fresh data if expired.
-func (c *Client) GetDelegatedEntries(ctx context.Context) ([]DelegatedEntry, error) {
-	if data, ok := c.cache.get(cacheKeyDelegated); ok {
-		return data.([]DelegatedEntry), nil
+func (c *Client) GetDelegatedEntries(ctx context.Context) ([]models.DelegatedEntry, error) {
+	if data, ok := c.CacheGet(transport.CacheKeyDelegated); ok {
+		return data.([]models.DelegatedEntry), nil
 	}
-
-	entries, err := c.FetchDelegatedEntries(ctx)
+	entries, err := stats.FetchDelegatedEntries(ctx, c.Client)
 	if err != nil {
 		return nil, err
 	}
-
-	c.cache.set(cacheKeyDelegated, entries)
+	c.CacheSet(transport.CacheKeyDelegated, entries)
 	return entries, nil
 }
 
 // GetExtendedEntries returns cached extended delegated entries, fetching fresh data if expired.
-func (c *Client) GetExtendedEntries(ctx context.Context) ([]DelegatedExtendedEntry, error) {
-	if data, ok := c.cache.get(cacheKeyExtended); ok {
-		return data.([]DelegatedExtendedEntry), nil
+func (c *Client) GetExtendedEntries(ctx context.Context) ([]models.DelegatedExtendedEntry, error) {
+	if data, ok := c.CacheGet(transport.CacheKeyExtended); ok {
+		return data.([]models.DelegatedExtendedEntry), nil
 	}
-
-	result, err := c.FetchExtendedEntries(ctx)
+	result, err := stats.FetchExtendedEntries(ctx, c.Client)
 	if err != nil {
 		return nil, err
 	}
-
-	c.cache.set(cacheKeyExtended, result.Entries)
+	c.CacheSet(transport.CacheKeyExtended, result.Entries)
 	return result.Entries, nil
 }
 
 // GetAssignedEntries returns cached assigned entries, fetching fresh data if expired.
-func (c *Client) GetAssignedEntries(ctx context.Context) ([]AssignedEntry, error) {
-	if data, ok := c.cache.get(cacheKeyAssigned); ok {
-		return data.([]AssignedEntry), nil
+func (c *Client) GetAssignedEntries(ctx context.Context) ([]models.AssignedEntry, error) {
+	if data, ok := c.CacheGet(transport.CacheKeyAssigned); ok {
+		return data.([]models.AssignedEntry), nil
 	}
-
-	result, err := c.FetchAssignedEntries(ctx)
+	result, err := stats.FetchAssignedEntries(ctx, c.Client)
 	if err != nil {
 		return nil, err
 	}
-
-	c.cache.set(cacheKeyAssigned, result.Entries)
+	c.CacheSet(transport.CacheKeyAssigned, result.Entries)
 	return result.Entries, nil
 }
 
 // GetIPv6AssignedEntries returns cached IPv6 assigned entries, fetching fresh data if expired.
-func (c *Client) GetIPv6AssignedEntries(ctx context.Context) ([]IPv6AssignedEntry, error) {
-	if data, ok := c.cache.get(cacheKeyIPv6Assigned); ok {
-		return data.([]IPv6AssignedEntry), nil
+func (c *Client) GetIPv6AssignedEntries(ctx context.Context) ([]models.IPv6AssignedEntry, error) {
+	if data, ok := c.CacheGet(transport.CacheKeyIPv6Assigned); ok {
+		return data.([]models.IPv6AssignedEntry), nil
 	}
-
-	entries, err := c.FetchIPv6AssignedEntries(ctx)
+	entries, err := stats.FetchIPv6AssignedEntries(ctx, c.Client)
 	if err != nil {
 		return nil, err
 	}
-
-	c.cache.set(cacheKeyIPv6Assigned, entries)
+	c.CacheSet(transport.CacheKeyIPv6Assigned, entries)
 	return entries, nil
 }
 
 // GetLegacyEntries returns cached legacy entries, fetching fresh data if expired.
-func (c *Client) GetLegacyEntries(ctx context.Context) ([]LegacyEntry, error) {
-	if data, ok := c.cache.get(cacheKeyLegacy); ok {
-		return data.([]LegacyEntry), nil
+func (c *Client) GetLegacyEntries(ctx context.Context) ([]models.LegacyEntry, error) {
+	if data, ok := c.CacheGet(transport.CacheKeyLegacy); ok {
+		return data.([]models.LegacyEntry), nil
 	}
-
-	result, err := c.FetchLegacyEntries(ctx)
+	result, err := stats.FetchLegacyEntries(ctx, c.Client)
 	if err != nil {
 		return nil, err
 	}
-
-	c.cache.set(cacheKeyLegacy, result.Entries)
+	c.CacheSet(transport.CacheKeyLegacy, result.Entries)
 	return result.Entries, nil
 }
 
 // GetTransfers returns cached transfer records, fetching fresh data if expired.
-func (c *Client) GetTransfers(ctx context.Context) (*TransfersResult, error) {
-	if data, ok := c.cache.get(cacheKeyTransfers); ok {
-		return data.(*TransfersResult), nil
+func (c *Client) GetTransfers(ctx context.Context) (*models.TransfersResult, error) {
+	if data, ok := c.CacheGet(transport.CacheKeyTransfers); ok {
+		return data.(*models.TransfersResult), nil
 	}
-
-	result, err := c.FetchTransfers(ctx)
+	result, err := query.FetchTransfers(ctx, c.Client)
 	if err != nil {
 		return nil, err
 	}
-
-	c.cache.set(cacheKeyTransfers, result)
+	c.CacheSet(transport.CacheKeyTransfers, result)
 	return result, nil
 }
 
 // GetChanges returns cached change records, fetching fresh data if expired.
-func (c *Client) GetChanges(ctx context.Context) (*ChangesResult, error) {
-	if data, ok := c.cache.get(cacheKeyChanges); ok {
-		return data.(*ChangesResult), nil
+func (c *Client) GetChanges(ctx context.Context) (*models.ChangesResult, error) {
+	if data, ok := c.CacheGet(transport.CacheKeyChanges); ok {
+		return data.(*models.ChangesResult), nil
 	}
-
-	result, err := c.FetchChanges(ctx)
+	result, err := query.FetchChanges(ctx, c.Client)
 	if err != nil {
 		return nil, err
 	}
-
-	c.cache.set(cacheKeyChanges, result)
+	c.CacheSet(transport.CacheKeyChanges, result)
 	return result, nil
 }
 
 // GetIRRDatabase returns a cached IRR database for the given object type,
 // fetching fresh data if expired or absent. objType must be a known IRR object
-// type (see IRRObjectTypes).
-func (c *Client) GetIRRDatabase(ctx context.Context, objType string) (*IRRDatabase, error) {
-	if data, ok := c.cache.get(cacheKeyIRR(objType)); ok {
-		return data.(*IRRDatabase), nil
+// type (see query.IRRObjectTypes).
+func (c *Client) GetIRRDatabase(ctx context.Context, objType string) (*models.IRRDatabase, error) {
+	key := transport.CacheKeyIRR(objType)
+	if data, ok := c.CacheGet(key); ok {
+		return data.(*models.IRRDatabase), nil
 	}
-
-	result, err := c.FetchIRRDatabase(ctx, objType)
+	result, err := query.FetchIRRDatabase(ctx, c.Client, objType)
 	if err != nil {
 		return nil, err
 	}
-
-	c.cache.set(cacheKeyIRR(objType), result)
+	c.CacheSet(key, result)
 	return result, nil
 }

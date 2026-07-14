@@ -2,7 +2,7 @@
 
 The SDK's parsers turn APNIC's text, XML, and JSON wire formats into typed Go models. They are deliberately decoupled from the transport: a parser takes either an `io.Reader` (streaming) or a `string` (full-buffer) and has no knowledge of HTTP, caching, or chunked download. This separation lets the transport layer (`fetchReader` / `fetchText` / `fetchTextStr`) choose the right fetch strategy and the parser stay a pure function of its input.
 
-Sources: [`fetcher.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/fetcher.go), [`bgp.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/bgp.go), [`irr.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/irr.go), [`rrdp.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/rrdp.go), [`rdap.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/rdap.go), [`rex.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/rex.go).
+Sources: [`internal/stats/fetcher.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/stats/fetcher.go), [`internal/query/bgp.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/query/bgp.go), [`internal/query/irr.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/query/irr.go), [`internal/query/rrdp.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/query/rrdp.go), [`internal/query/rdap.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/query/rdap.go), [`internal/query/rex.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/query/rex.go).
 
 ## Naming Convention
 

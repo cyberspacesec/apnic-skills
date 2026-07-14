@@ -2,7 +2,7 @@
 
 APNIC's FTP server throttles large files per-connection to roughly 8–18 KB/s. A multi-megabyte file — an IRR dump, a dated delegated-stats archive, the RRDP snapshot — downloaded over a single connection routinely exceeds the client timeout. The SDK solves this by splitting the file into parallel HTTP `Range` requests: each connection is throttled independently, so N parallel ranges multiply throughput.
 
-Source: [`downloader.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/downloader.go).
+Source: [`internal/transport/downloader.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/transport/downloader.go).
 
 This is the single most consequential optimization in the SDK. In practice it turns a multi-minute (or timeout-failing) delegated-stats fetch into one that completes in seconds, a roughly **3–4× throughput improvement** on APNIC's typical per-connection throttle.
 

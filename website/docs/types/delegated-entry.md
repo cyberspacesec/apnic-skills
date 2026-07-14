@@ -2,7 +2,7 @@
 
 The delegated-stats family of types models the line-oriented "registry | country | type | start | value | date | status | extensions" format that APNIC publishes for its public registry statistics. This family covers five source files — `delegated`, `extended`, `assigned`, `delegated-apnic-ipv6-assigned` and `legacy` — each with its own entry struct but a shared wrapper shape (`*Result` = header + summaries + entries).
 
-All types below live in [`models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/models.go).
+All types below live in [`internal/models/models.go`](https://github.com/cyberspacesec/apnic-skills/blob/main/internal/models/models.go).
 
 ## Class Diagram
 
