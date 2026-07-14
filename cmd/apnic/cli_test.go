@@ -904,13 +904,15 @@ func mockWhoisTCPServer(t *testing.T, response string) (addr string, cleanup fun
 }
 
 const sampleWhois = `inetnum:  1.1.1.0 - 1.1.1.255
-CIDR:     1.1.1.0/24
+netname:  APNIC-LABS
+descr:    APNIC and Cloudflare DNS Resolver project
 country:  AU
-descr:    APNIC
-org:      APNIC
-parent:   1.0.0.0 - 1.255.255.255
-created:  2011-08-10T23:12:35Z
+status:   ASSIGNED PORTABLE
 last-modified: 2023-04-26T22:57:58Z
+
+route:    1.1.1.0/24
+origin:   AS13335
+last-modified: 2023-04-26T02:42:44Z
 `
 
 func TestCLI_WhoisIP(t *testing.T) {
