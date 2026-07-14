@@ -97,33 +97,67 @@ func queryWhois(ctx context.Context, c *transport.Client, query string) (string,
 //
 // A real APNIC whois response for an IP is a concatenation of several RPSL
 // objects separated by blank lines: the primary inetnum/inet6num object, plus
-// secondary irt/organisation/role/route objects. We extract the primary object
-// (first block containing an inetnum/inet6num/aut-num/route key) for network,
-// country, status, and dates, then supplement CIDR/OriginASN from any route
-// object and OrgName from any organisation object. This avoids secondary
-// objects (e.g. a role object with country: ZZ) polluting the primary fields.
+// secondary irt/organisation/role/route objects. This returns the first primary
+// object with CIDR/OriginASN supplemented from any route object and OrgName from
+// any organisation object, delegating the multi-object walk to
+// ParseWhoisResponseList and taking element [0]. For queries that return
+// multiple primary objects (e.g. "-L" all-less-specific), use
+// ParseWhoisResponseList to get the full list. Returns a zero-value WhoisInfo
+// when no primary object is found.
 func ParseWhoisResponse(response string) models.WhoisInfo {
-	info := models.WhoisInfo{CIDR: []string{}}
+	list := ParseWhoisResponseList(response)
+	if len(list) == 0 {
+		return models.WhoisInfo{CIDR: []string{}}
+	}
+	return list[0]
+}
+
+// ParseWhoisResponseList parses a raw Whois response that may contain multiple
+// primary objects (e.g. the response to a "-L" all-less-specific or "-M"
+// all-more-specific query, which returns several inetnum/route objects). Each
+// primary object block produces one WhoisInfo, in document order. Secondary
+// objects (irt/organisation/role) are folded into the nearest preceding primary
+// object's CIDR/OriginASN/OrgName supplements, matching ParseWhoisResponse's
+// single-object semantics. Returns an empty slice (not nil) when no primary
+// object is found, so callers always get a valid range.
+func ParseWhoisResponseList(response string) []models.WhoisInfo {
+	result := []models.WhoisInfo{}
 	blocks := splitWhoisBlocks(response)
 
-	primaryFound := false
+	// Track the index of the current primary object so secondary-object
+	// supplements (route CIDR, org-name) attach to it rather than spawning a
+	// new entry.
+	currentIdx := -1
 	for _, block := range blocks {
 		kv := parseWhoisBlock(block)
 		if len(kv) == 0 {
 			continue
 		}
 
-		// Identify the primary object (inetnum/inet6num/aut-num/route/as-block).
 		isPrimary := false
-		for _, key := range []string{"inetnum", "inet6num", "aut-num", "route", "as-block"} {
+		// inetnum/inet6num/aut-num always start a new primary entry. route and
+		// as-block start a new entry only when no primary is in progress;
+		// otherwise they fold into the preceding primary as a supplement
+		// (matching ParseWhoisResponse's single-object semantics, where a
+		// trailing route block feeds the inetnum's CIDR/origin rather than
+		// spawning a second entry).
+		for _, key := range []string{"inetnum", "inet6num", "aut-num"} {
 			if _, ok := kv[key]; ok {
 				isPrimary = true
 				break
 			}
 		}
+		if !isPrimary {
+			for _, key := range []string{"route", "as-block"} {
+				if _, ok := kv[key]; ok && currentIdx < 0 {
+					isPrimary = true
+					break
+				}
+			}
+		}
 
-		if isPrimary && !primaryFound {
-			primaryFound = true
+		if isPrimary {
+			info := models.WhoisInfo{CIDR: []string{}}
 			if v, ok := kv["inetnum"]; ok {
 				info.Network = v
 			} else if v, ok := kv["inet6num"]; ok {
@@ -150,6 +184,8 @@ func ParseWhoisResponse(response string) models.WhoisInfo {
 			if v, ok := kv["abuse-c"]; ok {
 				info.AbuseContact = v
 			}
+			// AbuseMailbox handling is deferred to Task 2 (field not yet
+			// declared in models); restored in Task 4 alongside its tests.
 			if v, ok := kv["parent"]; ok {
 				info.Parent = v
 			}
@@ -163,26 +199,39 @@ func ParseWhoisResponse(response string) models.WhoisInfo {
 					info.LastUpdated = t
 				}
 			}
+			// A route-as-primary block also feeds its own CIDR/origin.
+			if v, ok := kv["route"]; ok {
+				info.CIDR = appendCIDR(info.CIDR, v)
+			}
+			if v, ok := kv["origin"]; ok && info.OriginASN == "" {
+				info.OriginASN = v
+			}
+			result = append(result, info)
+			currentIdx = len(result) - 1
+			continue
 		}
 
-		// Supplement CIDR + OriginASN from any route object (may be in its own
-		// block or the primary block itself).
-		if v, ok := kv["route"]; ok {
-			info.CIDR = appendCIDR(info.CIDR, v)
-		}
-		if v, ok := kv["origin"]; ok && info.OriginASN == "" {
-			info.OriginASN = v
-		}
-		// Supplement OrgName from organisation object if descr did not set it.
-		if v, ok := kv["org-name"]; ok && info.OrgName == "" {
-			info.OrgName = v
-		}
-		if v, ok := kv["organisation"]; ok && info.OrgName == "" {
-			info.OrgName = v
+		// Secondary object: supplement the current primary object's CIDR /
+		// OriginASN / OrgName if one is in progress.
+		if currentIdx >= 0 {
+			cur := &result[currentIdx]
+			if v, ok := kv["route"]; ok {
+				cur.CIDR = appendCIDR(cur.CIDR, v)
+			}
+			if v, ok := kv["origin"]; ok && cur.OriginASN == "" {
+				cur.OriginASN = v
+			}
+			if v, ok := kv["org-name"]; ok && cur.OrgName == "" {
+				cur.OrgName = v
+			}
+			if v, ok := kv["organisation"]; ok && cur.OrgName == "" {
+				cur.OrgName = v
+			}
+			// AbuseMailbox secondary supplement deferred (see note above).
 		}
 	}
 
-	return info
+	return result
 }
 
 // splitWhoisBlocks splits a raw whois response into RPSL object blocks on blank
