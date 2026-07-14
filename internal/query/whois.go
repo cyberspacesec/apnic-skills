@@ -184,8 +184,9 @@ func ParseWhoisResponseList(response string) []models.WhoisInfo {
 			if v, ok := kv["abuse-c"]; ok {
 				info.AbuseContact = v
 			}
-			// AbuseMailbox handling is deferred to Task 2 (field not yet
-			// declared in models); restored in Task 4 alongside its tests.
+			if v, ok := kv["abuse-mailbox"]; ok && info.AbuseMailbox == "" {
+				info.AbuseMailbox = v
+			}
 			if v, ok := kv["parent"]; ok {
 				info.Parent = v
 			}
@@ -227,7 +228,9 @@ func ParseWhoisResponseList(response string) []models.WhoisInfo {
 			if v, ok := kv["organisation"]; ok && cur.OrgName == "" {
 				cur.OrgName = v
 			}
-			// AbuseMailbox secondary supplement deferred (see note above).
+			if v, ok := kv["abuse-mailbox"]; ok && cur.AbuseMailbox == "" {
+				cur.AbuseMailbox = v
+			}
 		}
 	}
 

@@ -124,7 +124,9 @@ type ChangeRecord struct {
 // Fields are extracted from the primary object (inetnum/inet6num/aut-num/route)
 // of an APNIC whois response, with CIDR and OriginASN supplemented from any
 // route object. Empty fields mean the corresponding key was absent from the
-// response (e.g. no route object → CIDR is nil).
+// response (e.g. no route object → CIDR is nil). AbuseMailbox holds the email
+// address from an "abuse-mailbox:" attribute (populated by the "-b" flag query),
+// distinct from AbuseContact which holds the "abuse-c:" handle.
 type WhoisInfo struct {
 	Network      string
 	NetName      string
@@ -135,6 +137,7 @@ type WhoisInfo struct {
 	Status       string
 	OriginASN    string
 	AbuseContact string
+	AbuseMailbox string
 	Created      time.Time
 	LastUpdated  time.Time
 }
