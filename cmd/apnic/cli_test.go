@@ -907,6 +907,7 @@ const sampleWhois = `inetnum:  1.1.1.0 - 1.1.1.255
 netname:  APNIC-LABS
 descr:    APNIC and Cloudflare DNS Resolver project
 country:  AU
+abuse-mailbox: helpdesk@apnic.net
 status:   ASSIGNED PORTABLE
 last-modified: 2023-04-26T22:57:58Z
 
@@ -961,6 +962,52 @@ func TestCLI_WhoisRaw(t *testing.T) {
 	}
 	if !strings.Contains(out, "inetnum") {
 		t.Errorf("unexpected output: %s", out)
+	}
+}
+
+func TestCLI_WhoisRules(t *testing.T) {
+	resetFlags()
+	addr, cleanup := mockWhoisTCPServer(t, sampleWhois)
+	defer cleanup()
+	flagWhoisServer = addr
+	out, err := runWithStatsServer(t, []string{"whois", "rules", "1.1.1.1", "--scope", "all-less"})
+	if err != nil {
+		t.Fatalf("whois rules error: %v", err)
+	}
+	if !strings.Contains(out, "Network:") {
+		t.Errorf("expected 'Network:' in output, got %q", out)
+	}
+	if !strings.Contains(out, "1.1.1.0 - 1.1.1.255") {
+		t.Errorf("expected network range in output, got %q", out)
+	}
+}
+
+func TestCLI_WhoisRulesInvalidScope(t *testing.T) {
+	resetFlags()
+	addr, cleanup := mockWhoisTCPServer(t, sampleWhois)
+	defer cleanup()
+	flagWhoisServer = addr
+	_, err := runWithStatsServer(t, []string{"whois", "rules", "1.1.1.1", "--scope", "bogus"})
+	if err == nil {
+		t.Error("expected error for invalid scope")
+	}
+}
+
+func TestCLI_WhoisRulesJSON(t *testing.T) {
+	resetFlags()
+	flagJSON = true
+	addr, cleanup := mockWhoisTCPServer(t, sampleWhois)
+	defer cleanup()
+	flagWhoisServer = addr
+	out, err := runWithStatsServer(t, []string{"whois", "rules", "1.1.1.1", "--scope", "all-less"})
+	if err != nil {
+		t.Fatalf("whois rules --json error: %v", err)
+	}
+	if !strings.Contains(out, "[") {
+		t.Errorf("expected JSON array '[', got: %s", out)
+	}
+	if !strings.Contains(out, `"Network"`) {
+		t.Errorf("expected 'Network' field in JSON, got: %s", out)
 	}
 }
 

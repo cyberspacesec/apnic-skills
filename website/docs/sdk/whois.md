@@ -26,19 +26,25 @@ sequenceDiagram
 | `QueryWhoisIP(ctx, ip)` | Query Whois for an IP address and return parsed result |
 | `QueryWhoisASN(ctx, asn)` | Query Whois for an ASN (pass `13335`, not `"AS13335"`) |
 | `QueryWhoisWithFlags(ctx, query, flags)` | Query with flags like `"B"` (brief), `"r"` (no recursion) |
-| `ParseWhoisResponse(response)` | Parse raw Whois text into structured `WhoisInfo` |
+| `ParseWhoisResponse(response)` | Parse raw Whois text into a single structured `WhoisInfo` (first primary object) |
+| `ParseWhoisResponseList(response)` | Parse raw Whois text into `[]WhoisInfo` for multi-object responses (`-L`/`-M` rule queries) |
 
 ## WhoisInfo Structure
 
 ```go
 type WhoisInfo struct {
-    Network     string    // Network range (e.g., "1.1.1.0 - 1.1.1.255")
-    CIDR        []string  // CIDR blocks (e.g., ["1.1.1.0/24"])
-    Country     string    // ISO 3166 country code
-    OrgName     string    // Organization name
-    Parent      string    // Parent allocation
-    Created     time.Time // Registration date
-    LastUpdated time.Time // Last modification date
+    Network       string    // Network range (e.g., "1.1.1.0 - 1.1.1.255")
+    NetName       string    // netname attribute
+    CIDR          []string  // CIDR blocks from route objects (e.g., ["1.1.1.0/24"])
+    Country       string    // ISO 3166 country code
+    OrgName       string    // Organization name (descr / org-name)
+    Parent        string    // Parent allocation (rarely emitted by APNIC)
+    Status        string    // status attribute (e.g. ASSIGNED PORTABLE)
+    OriginASN     string    // origin ASN from route object (e.g. AS13335)
+    AbuseContact  string    // abuse-c handle (e.g. AA1412-AP)
+    AbuseMailbox  string    // abuse-mailbox address (from "-b" flag query)
+    Created       time.Time // Registration date (rarely emitted; APNIC uses last-modified)
+    LastUpdated   time.Time // last-modified date
 }
 ```
 

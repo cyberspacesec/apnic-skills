@@ -33,6 +33,7 @@ var (
 	flagStatsBaseURL  string
 	flagRDAPBaseURL   string
 	flagWhoisServer   string
+	flagWhoisFlags    string
 	flagUserAgent     string
 	flagCacheTTL      string
 	flagTimeout       string
