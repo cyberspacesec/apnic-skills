@@ -121,14 +121,22 @@ type ChangeRecord struct {
 }
 
 // WhoisInfo represents parsed Whois response information.
+// Fields are extracted from the primary object (inetnum/inet6num/aut-num/route)
+// of an APNIC whois response, with CIDR and OriginASN supplemented from any
+// route object. Empty fields mean the corresponding key was absent from the
+// response (e.g. no route object → CIDR is nil).
 type WhoisInfo struct {
-	Network     string
-	CIDR        []string
-	Country     string
-	OrgName     string
-	Parent      string
-	Created     time.Time
-	LastUpdated time.Time
+	Network      string
+	NetName      string
+	CIDR         []string
+	Country      string
+	OrgName      string
+	Parent       string
+	Status       string
+	OriginASN    string
+	AbuseContact string
+	Created      time.Time
+	LastUpdated  time.Time
 }
 
 // StatsFileHeader represents the header line of a delegated stats file.

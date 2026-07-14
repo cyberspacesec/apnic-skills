@@ -1,7 +1,6 @@
 package query
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -95,50 +94,151 @@ func queryWhois(ctx context.Context, c *transport.Client, query string) (string,
 }
 
 // ParseWhoisResponse parses a raw Whois response into a structured WhoisInfo.
-// It extracts network, CIDR, country, organization, parent, and date information.
+//
+// A real APNIC whois response for an IP is a concatenation of several RPSL
+// objects separated by blank lines: the primary inetnum/inet6num object, plus
+// secondary irt/organisation/role/route objects. We extract the primary object
+// (first block containing an inetnum/inet6num/aut-num/route key) for network,
+// country, status, and dates, then supplement CIDR/OriginASN from any route
+// object and OrgName from any organisation object. This avoids secondary
+// objects (e.g. a role object with country: ZZ) polluting the primary fields.
 func ParseWhoisResponse(response string) models.WhoisInfo {
-	info := models.WhoisInfo{}
-	scanner := bufio.NewScanner(strings.NewReader(response))
+	info := models.WhoisInfo{CIDR: []string{}}
+	blocks := splitWhoisBlocks(response)
 
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "%") || strings.HasPrefix(line, "#") {
+	primaryFound := false
+	for _, block := range blocks {
+		kv := parseWhoisBlock(block)
+		if len(kv) == 0 {
 			continue
 		}
 
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			continue
+		// Identify the primary object (inetnum/inet6num/aut-num/route/as-block).
+		isPrimary := false
+		for _, key := range []string{"inetnum", "inet6num", "aut-num", "route", "as-block"} {
+			if _, ok := kv[key]; ok {
+				isPrimary = true
+				break
+			}
 		}
 
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
+		if isPrimary && !primaryFound {
+			primaryFound = true
+			if v, ok := kv["inetnum"]; ok {
+				info.Network = v
+			} else if v, ok := kv["inet6num"]; ok {
+				info.Network = v
+			} else if v, ok := kv["aut-num"]; ok {
+				info.Network = v
+			} else if v, ok := kv["route"]; ok {
+				info.Network = v
+			} else if v, ok := kv["as-block"]; ok {
+				info.Network = v
+			}
+			if v, ok := kv["netname"]; ok {
+				info.NetName = v
+			}
+			if v, ok := kv["country"]; ok {
+				info.Country = v
+			}
+			if v, ok := kv["status"]; ok {
+				info.Status = v
+			}
+			if v, ok := kv["descr"]; ok && info.OrgName == "" {
+				info.OrgName = v
+			}
+			if v, ok := kv["abuse-c"]; ok {
+				info.AbuseContact = v
+			}
+			if v, ok := kv["parent"]; ok {
+				info.Parent = v
+			}
+			if v, ok := kv["created"]; ok {
+				if t, err := parseWhoisDate(v); err == nil {
+					info.Created = t
+				}
+			}
+			if v, ok := kv["last-modified"]; ok {
+				if t, err := parseWhoisDate(v); err == nil {
+					info.LastUpdated = t
+				}
+			}
+		}
 
-		switch key {
-		case "inetnum", "inet6num":
-			info.Network = value
-		case "CIDR":
-			info.CIDR = strings.Split(value, ",")
-		case "country":
-			info.Country = value
-		case "descr", "org-name", "org":
-			if info.OrgName == "" {
-				info.OrgName = value
-			}
-		case "parent":
-			info.Parent = value
-		case "created":
-			if t, err := parseWhoisDate(value); err == nil {
-				info.Created = t
-			}
-		case "last-modified":
-			if t, err := parseWhoisDate(value); err == nil {
-				info.LastUpdated = t
-			}
+		// Supplement CIDR + OriginASN from any route object (may be in its own
+		// block or the primary block itself).
+		if v, ok := kv["route"]; ok {
+			info.CIDR = appendCIDR(info.CIDR, v)
+		}
+		if v, ok := kv["origin"]; ok && info.OriginASN == "" {
+			info.OriginASN = v
+		}
+		// Supplement OrgName from organisation object if descr did not set it.
+		if v, ok := kv["org-name"]; ok && info.OrgName == "" {
+			info.OrgName = v
+		}
+		if v, ok := kv["organisation"]; ok && info.OrgName == "" {
+			info.OrgName = v
 		}
 	}
 
 	return info
+}
+
+// splitWhoisBlocks splits a raw whois response into RPSL object blocks on blank
+// lines, stripping comment lines (% or #) within each block.
+func splitWhoisBlocks(response string) []string {
+	var blocks []string
+	var current []string
+	for _, raw := range strings.Split(response, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			if len(current) > 0 {
+				blocks = append(blocks, strings.Join(current, "\n"))
+				current = nil
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "%") || strings.HasPrefix(line, "#") {
+			continue
+		}
+		current = append(current, line)
+	}
+	if len(current) > 0 {
+		blocks = append(blocks, strings.Join(current, "\n"))
+	}
+	return blocks
+}
+
+// parseWhoisBlock parses a single RPSL object block into a key→value map. Only
+// the first value of a repeated key is kept (e.g. the first descr line), since
+// the structured model holds single strings. Multi-valued keys like route are
+// handled by the caller scanning for that key across blocks.
+func parseWhoisBlock(block string) map[string]string {
+	kv := make(map[string]string)
+	for _, line := range strings.Split(block, "\n") {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if _, exists := kv[key]; !exists {
+			kv[key] = value
+		}
+	}
+	return kv
+}
+
+// appendCIDR appends a CIDR string to the list if not already present (a single
+// inetnum may map to multiple route objects; dedupe keeps the list clean).
+func appendCIDR(list []string, cidr string) []string {
+	for _, c := range list {
+		if c == cidr {
+			return list
+		}
+	}
+	return append(list, cidr)
 }
 
 // parseWhoisDate attempts to parse a date string from Whois responses.
