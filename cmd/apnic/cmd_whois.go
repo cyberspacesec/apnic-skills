@@ -7,14 +7,22 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/cyberspacesec/apnic-skills/internal/query"
 )
 
 func init() {
 	whoisCmd.AddCommand(whoisIPCmd)
 	whoisCmd.AddCommand(whoisASNCmd)
 	whoisCmd.AddCommand(whoisRawCmd)
+	whoisCmd.AddCommand(whoisRulesCmd)
 	rootCmd.AddCommand(whoisCmd)
 	rootCmd.AddCommand(reverseDNSCmd)
+
+	// whois raw: pass arbitrary APNIC whois flags (e.g. "-L", "B", "r").
+	whoisRawCmd.Flags().StringVar(&flagWhoisFlags, "flags", "", "whois query flags (e.g. \"-L\" all-less-specific, \"B\" brief, \"r\" no recursion)")
+	// whois rules: select inetnum/route specificity scope.
+	whoisRulesCmd.Flags().String("scope", "all-less", "rule scope: exact, one-less, all-less, one-more, all-more")
 }
 
 var whoisCmd = &cobra.Command{
@@ -90,11 +98,63 @@ var whoisRawCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client := newClient()
 		ctx := context.Background()
-		resp, err := client.QueryWhois(ctx, args[0])
+		resp, err := client.QueryWhoisWithFlags(ctx, args[0], flagWhoisFlags)
 		if err != nil {
 			return err
 		}
 		fmt.Print(resp)
+		return nil
+	},
+}
+
+// whoisRuleScopes maps a human-friendly scope name to the APNIC whois flag that
+// selects inetnum/route objects at that specificity level. See "whois.apnic.net"
+// help output for the flag semantics.
+var whoisRuleScopes = map[string]string{
+	"exact":    "-x",
+	"one-less": "-l",
+	"all-less": "-L",
+	"one-more": "-m",
+	"all-more": "-M",
+}
+
+var whoisRulesCmd = &cobra.Command{
+	Use:   "rules <ip>",
+	Short: "Query inetnum/route objects around an IP by scope (all-less, one-less, all-more, one-more, exact)",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		scope, _ := cmd.Flags().GetString("scope")
+		flag, ok := whoisRuleScopes[scope]
+		if !ok {
+			return fmt.Errorf("invalid scope %q: valid scopes are exact, one-less, all-less, one-more, all-more", scope)
+		}
+		client := newClient()
+		ctx := context.Background()
+		resp, err := client.QueryWhoisWithFlags(ctx, args[0], flag)
+		if err != nil {
+			return err
+		}
+		list := query.ParseWhoisResponseList(resp)
+		if flagJSON {
+			printJSON(list)
+			return nil
+		}
+		if len(list) == 0 {
+			fmt.Println("(no matching inetnum/route objects)")
+			return nil
+		}
+		for i, info := range list {
+			fmt.Printf("--- object %d ---\n", i+1)
+			fmt.Printf("Network:      %s\n", info.Network)
+			fmt.Printf("NetName:      %s\n", info.NetName)
+			fmt.Printf("CIDR:         %v\n", info.CIDR)
+			fmt.Printf("Country:      %s\n", info.Country)
+			fmt.Printf("Status:       %s\n", info.Status)
+			fmt.Printf("Origin ASN:   %s\n", info.OriginASN)
+			fmt.Printf("Abuse:        %s\n", info.AbuseContact)
+			fmt.Printf("AbuseMailbox: %s\n", info.AbuseMailbox)
+			fmt.Printf("LastUpdated:  %s\n", info.LastUpdated)
+		}
 		return nil
 	},
 }

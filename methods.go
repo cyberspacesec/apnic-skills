@@ -138,6 +138,13 @@ func (c *Client) QueryWhois(ctx context.Context, q string) (string, error) {
 	return query.QueryWhois(ctx, c.Client, q)
 }
 
+// QueryWhoisWithFlags performs a raw Whois query with additional flags prepended
+// to the query (e.g. "-L" for all-less-specific). An empty flags string behaves
+// identically to QueryWhois.
+func (c *Client) QueryWhoisWithFlags(ctx context.Context, q string, flags string) (string, error) {
+	return query.QueryWhoisWithFlags(ctx, c.Client, q, flags)
+}
+
 func (c *Client) QueryWhoisIP(ctx context.Context, ip string) (*models.WhoisInfo, error) {
 	return query.QueryWhoisIP(ctx, c.Client, ip)
 }
