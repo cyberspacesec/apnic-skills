@@ -248,7 +248,8 @@ const SampleRDAPNotFoundJSON = `{
 
 // SampleWhoisResponse is a realistic APNIC whois response for 1.1.1.1: a primary
 // inetnum object followed by a route object, separated by a blank line. It uses
-// only fields APNIC actually emits (no fabricated CIDR/parent/created keys).
+// only fields APNIC actually emits (no fabricated CIDR/parent/created keys), and
+// includes an abuse-mailbox so AbuseContact/AbuseMailbox parsing can be asserted.
 const SampleWhoisResponse = `% Whois information
 
 inetnum:        1.1.1.0 - 1.1.1.255
@@ -257,6 +258,7 @@ descr:          APNIC and Cloudflare DNS Resolver project
 country:        AU
 org:            ORG-ARAD1-AP
 abuse-c:        AA1412-AP
+abuse-mailbox:  helpdesk@apnic.net
 status:         ASSIGNED PORTABLE
 last-modified:  2023-04-26T22:57:58Z
 source:         APNIC
@@ -265,5 +267,29 @@ route:          1.1.1.0/24
 origin:         AS13335
 descr:          APNIC Research and Development
 last-modified:  2023-04-26T02:42:44Z
+source:         APNIC
+`
+
+// SampleWhoisListResponse simulates the response to a "-L" (all-less-specific)
+// query for 1.1.1.1: multiple inetnum objects of decreasing specificity plus a
+// route object, each terminated by "source: APNIC" and separated by blank
+// lines. Used to exercise ParseWhoisResponseList.
+const SampleWhoisListResponse = `inetnum:        1.1.1.0 - 1.1.1.255
+netname:        APNIC-LABS
+descr:          APNIC and Cloudflare DNS Resolver project
+country:        AU
+status:         ASSIGNED PORTABLE
+last-modified:  2023-04-26T22:57:58Z
+source:         APNIC
+
+route:          1.1.1.0/24
+origin:         AS13335
+source:         APNIC
+
+inetnum:        1.0.0.0 - 1.255.255.255
+netname:        APNIC-AP
+country:        AU
+status:         ALLOCATED PORTABLE
+last-modified:  2011-08-10T23:12:35Z
 source:         APNIC
 `

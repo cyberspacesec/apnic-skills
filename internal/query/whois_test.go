@@ -133,8 +133,51 @@ func TestParseWhoisResponse(t *testing.T) {
 	if info.OrgName != "APNIC and Cloudflare DNS Resolver project" {
 		t.Errorf("orgName = %q", info.OrgName)
 	}
+	if info.AbuseContact != "AA1412-AP" {
+		t.Errorf("abuseContact = %q, want AA1412-AP", info.AbuseContact)
+	}
+	if info.AbuseMailbox != "helpdesk@apnic.net" {
+		t.Errorf("abuseMailbox = %q, want helpdesk@apnic.net", info.AbuseMailbox)
+	}
 	if info.LastUpdated.IsZero() {
 		t.Error("expected non-zero lastUpdated date")
+	}
+}
+
+func TestParseWhoisResponseList(t *testing.T) {
+	list := ParseWhoisResponseList(testutil.SampleWhoisListResponse)
+	if len(list) != 2 {
+		t.Fatalf("expected 2 primary objects, got %d", len(list))
+	}
+	// First object: the exact inetnum, with the trailing route folded in.
+	if list[0].Network != "1.1.1.0 - 1.1.1.255" {
+		t.Errorf("list[0] network = %q", list[0].Network)
+	}
+	if list[0].NetName != "APNIC-LABS" {
+		t.Errorf("list[0] netName = %q, want APNIC-LABS", list[0].NetName)
+	}
+	if len(list[0].CIDR) != 1 || list[0].CIDR[0] != "1.1.1.0/24" {
+		t.Errorf("list[0] cidr = %v, want [1.1.1.0/24]", list[0].CIDR)
+	}
+	if list[0].OriginASN != "AS13335" {
+		t.Errorf("list[0] originASN = %q, want AS13335", list[0].OriginASN)
+	}
+	// Second object: the wider allocation, no route so CIDR is empty.
+	if list[1].Network != "1.0.0.0 - 1.255.255.255" {
+		t.Errorf("list[1] network = %q", list[1].Network)
+	}
+	if list[1].NetName != "APNIC-AP" {
+		t.Errorf("list[1] netName = %q, want APNIC-AP", list[1].NetName)
+	}
+	if len(list[1].CIDR) != 0 {
+		t.Errorf("list[1] cidr = %v, want empty", list[1].CIDR)
+	}
+}
+
+func TestParseWhoisResponseListEmpty(t *testing.T) {
+	list := ParseWhoisResponseList("")
+	if len(list) != 0 {
+		t.Errorf("expected empty list, got %d", len(list))
 	}
 }
 
